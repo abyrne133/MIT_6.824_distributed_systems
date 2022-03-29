@@ -1,16 +1,26 @@
 package mr
 
-import "fmt"
 import "log"
 import "net/rpc"
 import "hash/fnv"
+import "io/ioutil"
+import "os"
 import "time"
+import "sort"
+import "strings"
+import "strconv"
 
 // Map functions return a slice of KeyValue.
 type KeyValue struct {
 	Key   string
 	Value string
 }
+
+// for sorting by key.
+type ByKey []KeyValue
+func (a ByKey) Len() int           { return len(a) }
+func (a ByKey) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByKey) Less(i, j int) bool { return a[i].Key < a[j].Key }
 
 //
 // use ihash(key) % NReduce to choose the reduce
@@ -25,15 +35,53 @@ func ihash(key string) int {
 // main/mrworker.go calls this function.
 func Worker(mapf func(string, string) []KeyValue,
 	reducef func(string, []string) string) {
+		
 		workerRequest := WorkerRequest{WorkerId: time.Now().Format(time.RFC850)}
 		coordinatorResponse := CoordinatorResponse{}
 			
 		ok := call("Coordinator.HandleWorkerRequest", &workerRequest, &coordinatorResponse)
-		if ok {
-			fmt.Println("Coordinator Response", coordinatorResponse.ReduceTasks)
-		} else {
-			fmt.Printf("call failed!\n")
+		
+		if !ok {
+			log.Println("Work Request failed, worker Id:", workerRequest.WorkerId)
+			return;
 		}
+
+		intermediate := []KeyValue{}
+		for _, filename := range coordinatorResponse.FileNamesToProcess {
+			file, err := os.Open(filename)
+			if err != nil {
+				log.Fatalf("cannot open %v", filename)
+			}
+			content, err := ioutil.ReadAll(file)
+			if err != nil {
+				log.Fatalf("cannot read %v", filename)
+			}
+			file.Close()
+			kva := mapf(filename, string(content))
+			intermediate = append(intermediate, kva...)
+		}
+		
+		sort.Sort(ByKey(intermediate))
+
+		for _, keyValue := range intermediate {
+			reduceTaskNumber := ihash(keyValue.Key) % coordinatorResponse.ReduceTasks
+			var stringBuilder strings.Builder
+			stringBuilder.WriteString("mr-1-")
+			stringBuilder.WriteString(strconv.Itoa(reduceTaskNumber))
+			fileName := stringBuilder.String()
+			file, err := os.OpenFile(fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				log.Fatal(err)
+			}
+			if _, err := file.Write([]byte(keyValue.Value)); err != nil {
+				file.Close() 
+				log.Fatal(err)
+			}
+			if err := file.Close(); err != nil {
+				log.Fatal(err)
+			}
+			
+		}		
 }
 
 //
@@ -54,6 +102,6 @@ func call(rpcname string, args interface{}, reply interface{}) bool {
 		return true
 	}
 
-	fmt.Println(err)
+	log.Println(err)
 	return false
 }

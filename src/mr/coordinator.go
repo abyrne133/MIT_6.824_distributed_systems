@@ -5,6 +5,7 @@ import "net"
 import "os"
 import "net/rpc"
 import "net/http"
+import "errors"
 
 
 type Coordinator struct {
@@ -14,7 +15,13 @@ type Coordinator struct {
 
 func (c *Coordinator) HandleWorkerRequest(workerRequest *WorkerRequest, coordinatorResponse *CoordinatorResponse) error {
 	coordinatorResponse.ReduceTasks = c.reduceTasks
-	return nil;
+	for fileName, isFileNameProcessed := range c.fileStatus {
+		if isFileNameProcessed == false {
+			coordinatorResponse.FileNamesToProcess = []string{fileName}
+			return nil;
+		}
+	}
+	return errors.New("No work remaining")
 }
 
 func (c *Coordinator) server() {
