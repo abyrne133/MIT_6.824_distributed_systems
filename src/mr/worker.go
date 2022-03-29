@@ -9,6 +9,7 @@ import "time"
 import "sort"
 import "strings"
 import "strconv"
+import "encoding/json"
 
 // Map functions return a slice of KeyValue.
 type KeyValue struct {
@@ -65,18 +66,22 @@ func Worker(mapf func(string, string) []KeyValue,
 
 		for _, keyValue := range intermediate {
 			reduceTaskNumber := ihash(keyValue.Key) % coordinatorResponse.ReduceTasks
-			var stringBuilder strings.Builder
-			stringBuilder.WriteString("mr-1-")
-			stringBuilder.WriteString(strconv.Itoa(reduceTaskNumber))
-			fileName := stringBuilder.String()
+			var sb strings.Builder
+			sb.WriteString("mr-")
+			sb.WriteString(strconv.Itoa(coordinatorResponse.Task))
+			sb.WriteString("-")
+			sb.WriteString(strconv.Itoa(reduceTaskNumber))
+			fileName := sb.String()
 			file, err := os.OpenFile(fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
 				log.Fatal(err)
 			}
-			if _, err := file.Write([]byte(keyValue.Value)); err != nil {
+			enc := json.NewEncoder(file)
+			encodeErr:= enc.Encode(&keyValue)
+			if encodeErr != nil {
 				file.Close() 
 				log.Fatal(err)
-			}
+			}		
 			if err := file.Close(); err != nil {
 				log.Fatal(err)
 			}

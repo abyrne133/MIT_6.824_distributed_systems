@@ -6,18 +6,28 @@ import "os"
 import "net/rpc"
 import "net/http"
 import "errors"
+import "sync"
 
 
 type Coordinator struct {
-	fileStatus map[string]bool
+	fileTasks map[string]Task
 	reduceTasks int
 }
 
+type Task struct {
+	id int
+	done bool
+}
+
 func (c *Coordinator) HandleWorkerRequest(workerRequest *WorkerRequest, coordinatorResponse *CoordinatorResponse) error {
+	var mutex sync.Mutex
+	mutex.Lock()
+	defer mutex.Unlock()
 	coordinatorResponse.ReduceTasks = c.reduceTasks
-	for fileName, isFileNameProcessed := range c.fileStatus {
-		if isFileNameProcessed == false {
+	for fileName, task := range c.fileTasks {
+		if task.done == false {
 			coordinatorResponse.FileNamesToProcess = []string{fileName}
+			coordinatorResponse.Task = c.fileTasks[fileName].id
 			return nil;
 		}
 	}
@@ -39,8 +49,8 @@ func (c *Coordinator) server() {
 // check if the entire job has finished.
 func (c *Coordinator) Done() bool {
 
-	for _, fileStatus := range c.fileStatus{
-		if(fileStatus == false){
+	for _, fileTask := range c.fileTasks{
+		if(fileTask.done == false){
 			return false;
 		}
 	}
@@ -50,12 +60,10 @@ func (c *Coordinator) Done() bool {
 
 // main/mrcoordinator.go calls this function.
 func MakeCoordinator(files []string, reduceTasks int) *Coordinator {
-	c := Coordinator{fileStatus: make(map[string]bool)}
+	c := Coordinator{fileTasks: make(map[string]Task), reduceTasks: reduceTasks}
 	
-	c.reduceTasks = reduceTasks
-
-	for _, filename := range files{
-		c.fileStatus[filename]=false
+	for index, filename := range files{
+		c.fileTasks[filename]= Task{id: index, done: false}
 	}
 
 	c.server()

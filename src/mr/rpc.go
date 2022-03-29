@@ -8,6 +8,7 @@ type WorkerRequest struct {
 }
 
 type CoordinatorResponse struct {
+	Task int
 	ReduceTasks int
 	FileNamesToProcess []string
 }
