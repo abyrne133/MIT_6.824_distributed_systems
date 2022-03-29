@@ -36,7 +36,11 @@ func ihash(key string) int {
 // main/mrworker.go calls this function.
 func Worker(mapf func(string, string) []KeyValue,
 	reducef func(string, []string) string) {
-		
+		work(mapf, reducef)
+}
+
+func work(mapf func(string, string) []KeyValue,
+	reducef func(string, []string) string) {
 		workerRequest := WorkerRequest{WorkerId: time.Now().Format(time.RFC850)}
 		coordinatorResponse := CoordinatorResponse{}
 			
@@ -44,7 +48,7 @@ func Worker(mapf func(string, string) []KeyValue,
 		
 		if !ok {
 			log.Println("Work Request failed, worker Id:", workerRequest.WorkerId)
-			return;
+			os.Exit(1);
 		}
 
 		intermediate := []KeyValue{}
@@ -86,7 +90,10 @@ func Worker(mapf func(string, string) []KeyValue,
 				log.Fatal(err)
 			}
 			
-		}		
+			
+		}	
+		log.Println("Task Complete: ", coordinatorResponse.Task)
+		work(mapf, reducef)
 }
 
 //
