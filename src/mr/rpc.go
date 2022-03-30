@@ -12,6 +12,7 @@ type CoordinatorResponse struct {
 	ReduceTasks int
 	FileNamesToProcess []string
 	ExpectedMapDoneFileName string
+	PotentialWorkRemaining bool
 }
 
 // Cook up a unique-ish UNIX-domain socket name

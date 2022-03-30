@@ -51,6 +51,11 @@ func work(mapf func(string, string) []KeyValue,
 			os.Exit(1);
 		}
 
+		if coordinatorResponse.PotentialWorkRemaining == true {
+			time.Sleep(time.Second)
+			work(mapf, reducef)
+		}
+
 		intermediate := []KeyValue{}
 		for _, filename := range coordinatorResponse.FileNamesToProcess {
 			file, err := os.Open(filename)
@@ -99,7 +104,6 @@ func work(mapf func(string, string) []KeyValue,
 			log.Fatal("Could not create", coordinatorResponse.ExpectedMapDoneFileName)
 		}
 		log.Println("Task Complete: ", coordinatorResponse.Task)
-		time.Sleep(time.Second) // not sure if needed
 		work(mapf, reducef)
 }
 

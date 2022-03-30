@@ -29,6 +29,7 @@ func (c *Coordinator) HandleWorkerRequest(workerRequest *WorkerRequest, coordina
 	mutex.Lock()
 	defer mutex.Unlock()
 	coordinatorResponse.ReduceTasks = c.reduceTasks
+	potentialWorkRemaining := false
 	for fileName, task := range c.fileTasks {
 		if task.done == false && task.progressing == false {
 			task.progressing = true
@@ -38,8 +39,11 @@ func (c *Coordinator) HandleWorkerRequest(workerRequest *WorkerRequest, coordina
 			coordinatorResponse.ExpectedMapDoneFileName =c.fileTasks[fileName].expectedMapFunctionDoneFileName
 			go monitorTask(c.fileTasks[fileName])
 			return nil;
+		} else if task.done == false && task.progressing == true {
+			potentialWorkRemaining = true
 		}
 	}
+	coordinatorResponse.PotentialWorkRemaining = potentialWorkRemaining
 	return errors.New("No work remaining")
 }
 
