@@ -91,8 +91,15 @@ func work(mapf func(string, string) []KeyValue,
 			}
 			
 			
-		}	
+		}
+		
+		taskCompleteFile, err := os.Create(coordinatorResponse.ExpectedMapDoneFileName)
+		defer taskCompleteFile.Close()
+		if err!=nil {
+			log.Fatal("Could not create", coordinatorResponse.ExpectedMapDoneFileName)
+		}
 		log.Println("Task Complete: ", coordinatorResponse.Task)
+		time.Sleep(time.Second) // not sure if needed
 		work(mapf, reducef)
 }
 
