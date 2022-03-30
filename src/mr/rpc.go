@@ -8,11 +8,12 @@ type WorkerRequest struct {
 }
 
 type CoordinatorResponse struct {
-	Task int
+	TaskNumber int
 	ReduceTasks int
+	IsMapTask bool // false indicates reduce task
 	FileNamesToProcess []string
-	ExpectedMapDoneFileName string
-	PotentialWorkRemaining bool
+	ExpectedDoneFileName string
+	Wait bool
 }
 
 // Cook up a unique-ish UNIX-domain socket name

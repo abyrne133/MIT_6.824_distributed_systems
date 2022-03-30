@@ -10,6 +10,8 @@ import "sort"
 import "strings"
 import "strconv"
 import "encoding/json"
+import "path/filepath"
+import "fmt"
 
 // Map functions return a slice of KeyValue.
 type KeyValue struct {
@@ -51,12 +53,24 @@ func work(mapf func(string, string) []KeyValue,
 			os.Exit(1);
 		}
 
-		if coordinatorResponse.PotentialWorkRemaining == true {
+		if coordinatorResponse.Wait == true {
+			log.Println("sleeping")
 			time.Sleep(time.Second)
 			work(mapf, reducef)
 		}
 
-		intermediate := []KeyValue{}
+		if coordinatorResponse.IsMapTask == true {
+			mapWork(mapf, coordinatorResponse)
+		} else {
+			reduceWork(reducef, coordinatorResponse)
+		}
+
+		log.Println("Task Complete: ", coordinatorResponse.TaskNumber)
+		work(mapf, reducef)
+}
+
+func mapWork(mapf func(string, string) []KeyValue, coordinatorResponse CoordinatorResponse){
+	intermediate := []KeyValue{}
 		for _, filename := range coordinatorResponse.FileNamesToProcess {
 			file, err := os.Open(filename)
 			if err != nil {
@@ -77,7 +91,7 @@ func work(mapf func(string, string) []KeyValue,
 			reduceTaskNumber := ihash(keyValue.Key) % coordinatorResponse.ReduceTasks
 			var sb strings.Builder
 			sb.WriteString("mr-")
-			sb.WriteString(strconv.Itoa(coordinatorResponse.Task))
+			sb.WriteString(strconv.Itoa(coordinatorResponse.TaskNumber))
 			sb.WriteString("-")
 			sb.WriteString(strconv.Itoa(reduceTaskNumber))
 			fileName := sb.String()
@@ -94,19 +108,66 @@ func work(mapf func(string, string) []KeyValue,
 			if err := file.Close(); err != nil {
 				log.Fatal(err)
 			}
-			
-			
 		}
 		
-		taskCompleteFile, err := os.Create(coordinatorResponse.ExpectedMapDoneFileName)
+		taskCompleteFile, err := os.Create(coordinatorResponse.ExpectedDoneFileName)
 		defer taskCompleteFile.Close()
 		if err!=nil {
-			log.Fatal("Could not create", coordinatorResponse.ExpectedMapDoneFileName)
-		}
-		log.Println("Task Complete: ", coordinatorResponse.Task)
-		work(mapf, reducef)
+			log.Fatal("Could not create", coordinatorResponse.ExpectedDoneFileName)
+		}	
+	
 }
+func reduceWork(reducef func(string, []string) string, coordinatorResponse CoordinatorResponse){
+	var sb strings.Builder
+	sb.WriteString("mr-*-")
+	sb.WriteString(strconv.Itoa(coordinatorResponse.TaskNumber))
+	matches, err := filepath.Glob(sb.String())
+	if err!=nil {
+		panic(err)
+	}
+	var kva []KeyValue
+	for _, match := range matches {
+		file, err:= os.Open(match)	
+		defer file.Close()
+		if err != nil {
+			log.Fatalln("Could not open file", match)
+		} else {
+			dec := json.NewDecoder(file)
+			for {
+				var kv KeyValue
+				if err := dec.Decode(&kv); err != nil {
+				break
+				}
+				kva = append(kva, kv)
+			}
+			
+		
+		}	
+	}
+	var outSb strings.Builder
+	outSb.WriteString("mr-out-")
+	outSb.WriteString(strconv.Itoa(coordinatorResponse.TaskNumber))
+	ofile, _ := os.Create(outSb.String())
 
+	i := 0
+	for i < len(kva) {
+		j := i + 1
+		for j < len(kva) && kva[j].Key == kva[i].Key {
+			j++
+		}
+		values := []string{}
+		for k := i; k < j; k++ {
+			values = append(values, kva[k].Value)
+		}
+		output := reducef(kva[i].Key, values)
+
+		fmt.Fprintf(ofile, "%v %v\n", kva[i].Key, output)
+
+		i = j
+	}
+
+	ofile.Close()
+}
 //
 // send an RPC request to the coordinator, wait for the response.
 // usually returns true.
