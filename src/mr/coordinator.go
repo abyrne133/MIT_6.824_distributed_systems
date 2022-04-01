@@ -27,7 +27,9 @@ type Task struct {
 }
 
 func (c *Coordinator) HandleWorkerRequest(workerRequest *WorkerRequest, coordinatorResponse *CoordinatorResponse) error {
-	
+	var mutex sync.Mutex
+	mutex.Lock()
+	defer mutex.Unlock()
 	coordinatorResponse.ReduceTasks = c.reduceTasksCount
 	mappingTasksStillInProgress := false
 	if c.mappingFinished == false {
@@ -59,8 +61,8 @@ func (c *Coordinator) HandleWorkerRequest(workerRequest *WorkerRequest, coordina
 		for fileName, task := range c.reduceTasks {
 			if task.done == false && task.progressing == false {
 				coordinatorResponse.IsMapTask = false
-				coordinatorResponse.TaskNumber = c.reduceTasks[fileName].id
 				coordinatorResponse.Wait = false
+				coordinatorResponse.TaskNumber = c.reduceTasks[fileName].id
 				coordinatorResponse.ExpectedDoneFileName =c.reduceTasks[fileName].expectedDoneFileName
 				go c.monitorTask(fileName, false)
 				return nil;
@@ -91,8 +93,8 @@ func (c *Coordinator) monitorTask(fileName string, isMapTask bool){
 	task.progressing = true
 	c.updateTask(fileName, task, isMapTask)
 
-	for i:=0; i <10; i++ {
-		time.Sleep(time.Second)
+	for i:=0; i <20; i++ {
+		time.Sleep(500 * time.Millisecond)
 		file, err := os.Open(task.expectedDoneFileName)
 		defer file.Close()
 		if err == nil {

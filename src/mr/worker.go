@@ -55,7 +55,7 @@ func work(mapf func(string, string) []KeyValue,
 
 		if coordinatorResponse.Wait == true {
 			log.Println("sleeping")
-			time.Sleep(time.Second)
+			time.Sleep(100 * time.Millisecond)
 			work(mapf, reducef)
 		}
 
@@ -65,7 +65,7 @@ func work(mapf func(string, string) []KeyValue,
 			reduceWork(reducef, coordinatorResponse)
 		}
 
-		log.Println("Task Complete: ", coordinatorResponse.TaskNumber)
+
 		work(mapf, reducef)
 }
 
@@ -114,18 +114,20 @@ func mapWork(mapf func(string, string) []KeyValue, coordinatorResponse Coordinat
 		defer taskCompleteFile.Close()
 		if err!=nil {
 			log.Fatal("Could not create", coordinatorResponse.ExpectedDoneFileName)
-		}	
+		}
+		log.Println("Map Task Complete: ", coordinatorResponse.TaskNumber)
 	
 }
+
 func reduceWork(reducef func(string, []string) string, coordinatorResponse CoordinatorResponse){
 	var sb strings.Builder
 	sb.WriteString("mr-*-")
 	sb.WriteString(strconv.Itoa(coordinatorResponse.TaskNumber))
 	matches, err := filepath.Glob(sb.String())
 	if err!=nil {
-		panic(err)
+		log.Fatalln("No intermediate files found")
 	}
-	var kva []KeyValue
+	kva := []KeyValue{}
 	for _, match := range matches {
 		file, err:= os.Open(match)	
 		defer file.Close()
@@ -136,14 +138,15 @@ func reduceWork(reducef func(string, []string) string, coordinatorResponse Coord
 			for {
 				var kv KeyValue
 				if err := dec.Decode(&kv); err != nil {
-				break
+				  break
 				}
 				kva = append(kva, kv)
-			}
-			
-		
+			  }
 		}	
 	}
+
+	sort.Sort(ByKey(kva))
+
 	var outSb strings.Builder
 	outSb.WriteString("mr-out-")
 	outSb.WriteString(strconv.Itoa(coordinatorResponse.TaskNumber))
@@ -167,6 +170,7 @@ func reduceWork(reducef func(string, []string) string, coordinatorResponse Coord
 	}
 
 	ofile.Close()
+	log.Println("Reduce Task Complete: ", coordinatorResponse.TaskNumber)
 }
 //
 // send an RPC request to the coordinator, wait for the response.
