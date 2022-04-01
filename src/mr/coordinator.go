@@ -12,6 +12,7 @@ import "strconv"
 import "strings"
 
 type Coordinator struct {
+	mu sync.Mutex
 	mapTasks map[string]Task
 	reduceTasks map[string]Task
 	mappingFinished bool
@@ -27,9 +28,8 @@ type Task struct {
 }
 
 func (c *Coordinator) HandleWorkerRequest(workerRequest *WorkerRequest, coordinatorResponse *CoordinatorResponse) error {
-	var mutex sync.Mutex
-	mutex.Lock()
-	defer mutex.Unlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	coordinatorResponse.ReduceTasks = c.reduceTasksCount
 	mappingTasksStillInProgress := false
 	if c.mappingFinished == false {
@@ -109,14 +109,13 @@ func (c *Coordinator) monitorTask(fileName string, isMapTask bool){
 }
 
 func (c *Coordinator) updateTask(fileName string, task Task, isMapTask bool){
-	var mutex sync.Mutex
-	mutex.Lock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if isMapTask {
 		c.mapTasks[fileName] = task
 	} else {
 		c.reduceTasks[fileName] = task
 	}
-	mutex.Unlock()
 }
 
 func (c *Coordinator) server() {
@@ -133,6 +132,8 @@ func (c *Coordinator) server() {
 
 // check if the entire job has finished.
 func (c *Coordinator) Done() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.reducingFinished
 }
 
