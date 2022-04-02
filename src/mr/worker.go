@@ -102,7 +102,6 @@ func mapWork(mapf func(string, string) []KeyValue, coordinatorResponse Coordinat
 			enc := json.NewEncoder(file)
 			encodeErr:= enc.Encode(&keyValue)
 			if encodeErr != nil {
-				file.Close() 
 				log.Fatal(err)
 			}		
 			if err := file.Close(); err != nil {
@@ -150,7 +149,7 @@ func reduceWork(reducef func(string, []string) string, coordinatorResponse Coord
 	var outSb strings.Builder
 	outSb.WriteString("mr-out-")
 	outSb.WriteString(strconv.Itoa(coordinatorResponse.TaskNumber))
-	ofile, _ := os.Create(outSb.String())
+	ofile, _ := ioutil.TempFile("",outSb.String())
 
 	i := 0
 	for i < len(kva) {
@@ -170,6 +169,9 @@ func reduceWork(reducef func(string, []string) string, coordinatorResponse Coord
 	}
 
 	ofile.Close()
+	if renameErr := os.Rename(ofile.Name(), outSb.String()); renameErr != nil {
+		log.Fatal("Error renaming", ofile.Name(), "to", outSb.String())
+	}
 	log.Println("Reduce Task Complete: ", coordinatorResponse.TaskNumber)
 }
 //
