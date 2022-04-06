@@ -100,7 +100,7 @@ func mapWork(mapf func(string, string) []KeyValue, coordinatorResponse Coordinat
 		sb.WriteString("-")
 		sb.WriteString(strconv.Itoa(reduceTaskNumber))
 		fileName := sb.String()
-		file, err := os.OpenFile(fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		file, err := ioutil.TempFile("",fileName)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -114,6 +114,7 @@ func mapWork(mapf func(string, string) []KeyValue, coordinatorResponse Coordinat
 		if err := file.Close(); err != nil {
 			log.Fatal(err)
 		} else {
+			os.Rename(file.Name(), fileName)
 			completedMapFiles = append(completedMapFiles, fileName)
 		}
 	}
@@ -152,7 +153,7 @@ func reduceWork(reducef func(string, []string) string, coordinatorResponse Coord
 
 	sort.Sort(ByKey(kva))
 
-	ofile, err := os.OpenFile(coordinatorResponse.ExpectedDoneFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	ofile, err := ioutil.TempFile("", coordinatorResponse.ExpectedDoneFileName)
 	if err != nil {
 		log.Fatalln("Could not open output file", coordinatorResponse.ExpectedDoneFileName)
 		return
@@ -175,6 +176,7 @@ func reduceWork(reducef func(string, []string) string, coordinatorResponse Coord
 	}
 
 	ofile.Close()
+	os.Rename(ofile.Name(), coordinatorResponse.ExpectedDoneFileName)
 	log.Println("Reduce Task Complete: ", coordinatorResponse.TaskNumber)
 }
 //
