@@ -131,7 +131,6 @@ func mapWork(mapf func(string, string) []KeyValue, coordinatorResponse Coordinat
 
 func reduceWork(reducef func(string, []string) string, coordinatorResponse CoordinatorResponse){
 	kva := []KeyValue{}
-	log.Println("Reduce files:", coordinatorResponse.ReduceFilesToProcess)
 	for _, fileName := range coordinatorResponse.ReduceFilesToProcess {
 		file, err:= os.Open(fileName)	
 		if err != nil {
