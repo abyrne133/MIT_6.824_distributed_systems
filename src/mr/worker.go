@@ -10,7 +10,6 @@ import "sort"
 import "strings"
 import "strconv"
 import "encoding/json"
-import "path/filepath"
 import "fmt"
 
 // Map functions return a slice of KeyValue.
@@ -70,68 +69,73 @@ func work(mapf func(string, string) []KeyValue,
 }
 
 func mapWork(mapf func(string, string) []KeyValue, coordinatorResponse CoordinatorResponse){
-	intermediate := []KeyValue{}
-		for _, filename := range coordinatorResponse.FileNamesToProcess {
-			file, err := os.Open(filename)
-			if err != nil {
-				log.Fatalf("cannot open %v", filename)
-			}
-			content, err := ioutil.ReadAll(file)
-			if err != nil {
-				log.Fatalf("cannot read %v", filename)
-			}
-			file.Close()
-			kva := mapf(filename, string(content))
-			intermediate = append(intermediate, kva...)
-		}
-		
-		sort.Sort(ByKey(intermediate))
+	
+	filename := coordinatorResponse.MapFileNameToProcess
+	file, err := os.Open(filename)
+	if err != nil {
+		log.Fatalf("cannot open %v", filename)
+	}
+	content, err := ioutil.ReadAll(file)
+	if err != nil {
+		log.Fatalf("cannot read %v", filename)
+	}
+	if err := file.Close(); err != nil {
+		log.Fatalf("Could not close %v", filename)
+	}
+	mapData := mapf(filename, string(content))
 
-		for _, keyValue := range intermediate {
-			reduceTaskNumber := ihash(keyValue.Key) % coordinatorResponse.ReduceTasks
-			var sb strings.Builder
-			sb.WriteString("mr-")
-			sb.WriteString(strconv.Itoa(coordinatorResponse.TaskNumber))
-			sb.WriteString("-")
-			sb.WriteString(strconv.Itoa(reduceTaskNumber))
-			fileName := sb.String()
-			file, err := os.OpenFile(fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-			if err != nil {
-				log.Fatal(err)
-			}
-			enc := json.NewEncoder(file)
+	sort.Sort(ByKey(mapData))
+
+	mapDataByReduceNumber := make(map[int][]KeyValue)
+	for _, keyValueArray := range mapData {
+		reduceTaskNumber := ihash(keyValueArray.Key) % coordinatorResponse.ReduceTasks
+		mapDataByReduceNumber[reduceTaskNumber] = append(mapDataByReduceNumber[reduceTaskNumber], keyValueArray)
+	}
+
+	completedMapFiles := []string{}
+	for reduceTaskNumber, keyValueArray := range mapDataByReduceNumber {
+		var sb strings.Builder
+		sb.WriteString("mr-")
+		sb.WriteString(strconv.Itoa(coordinatorResponse.TaskNumber))
+		sb.WriteString("-")
+		sb.WriteString(strconv.Itoa(reduceTaskNumber))
+		fileName := sb.String()
+		file, err := os.OpenFile(fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+		enc := json.NewEncoder(file)
+		for _, keyValue := range keyValueArray {
 			encodeErr:= enc.Encode(&keyValue)
 			if encodeErr != nil {
 				log.Fatal(err)
-			}		
-			if err := file.Close(); err != nil {
-				log.Fatal(err)
 			}
 		}
-		
-		taskCompleteFile, err := os.Create(coordinatorResponse.ExpectedDoneFileName)
-		defer taskCompleteFile.Close()
-		if err!=nil {
-			log.Fatal("Could not create", coordinatorResponse.ExpectedDoneFileName)
+		if err := file.Close(); err != nil {
+			log.Fatal(err)
+		} else {
+			completedMapFiles = append(completedMapFiles, fileName)
 		}
-		log.Println("Map Task Complete: ", coordinatorResponse.TaskNumber)
+	}
+
+	workerDoneRequest := WorkerRequest{WorkerId: time.Now().Format(time.RFC850), TaskNumber: coordinatorResponse.TaskNumber, CompletedIntermediateFiles: completedMapFiles, CompletedInputFile: coordinatorResponse.MapFileNameToProcess}
+	workerDoneCoordinatorResponse := CoordinatorResponse{}
+	ok := call("Coordinator.HandleWorkerDoneRequest", &workerDoneRequest, &workerDoneCoordinatorResponse)
+	if !ok {
+		log.Println("WorkerDoneRequest failed, worker Id:", workerDoneRequest.WorkerId)
+		os.Exit(1);
+	}
+	log.Println("Map Task Complete: ", coordinatorResponse.TaskNumber)
 	
 }
 
 func reduceWork(reducef func(string, []string) string, coordinatorResponse CoordinatorResponse){
-	var sb strings.Builder
-	sb.WriteString("mr-*-")
-	sb.WriteString(strconv.Itoa(coordinatorResponse.TaskNumber))
-	matches, err := filepath.Glob(sb.String())
-	if err!=nil {
-		log.Fatalln("No intermediate files found")
-	}
 	kva := []KeyValue{}
-	for _, match := range matches {
-		file, err:= os.Open(match)	
-		defer file.Close()
+	log.Println("Reduce files:", coordinatorResponse.ReduceFilesToProcess)
+	for _, fileName := range coordinatorResponse.ReduceFilesToProcess {
+		file, err:= os.Open(fileName)	
 		if err != nil {
-			log.Fatalln("Could not open file", match)
+			log.Fatalln("Could not open file", fileName)
 		} else {
 			dec := json.NewDecoder(file)
 			for {
@@ -141,16 +145,19 @@ func reduceWork(reducef func(string, []string) string, coordinatorResponse Coord
 				}
 				kva = append(kva, kv)
 			  }
+		}
+		if err := file.Close(); err != nil {
+			log.Fatalln("Could not close file", err)
 		}	
 	}
 
 	sort.Sort(ByKey(kva))
 
-	var outSb strings.Builder
-	outSb.WriteString("mr-out-")
-	outSb.WriteString(strconv.Itoa(coordinatorResponse.TaskNumber))
-	ofile, _ := ioutil.TempFile("",outSb.String())
-
+	ofile, err := os.OpenFile(coordinatorResponse.ExpectedDoneFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatalln("Could not open output file", coordinatorResponse.ExpectedDoneFileName)
+		return
+	}
 	i := 0
 	for i < len(kva) {
 		j := i + 1
@@ -169,9 +176,6 @@ func reduceWork(reducef func(string, []string) string, coordinatorResponse Coord
 	}
 
 	ofile.Close()
-	if renameErr := os.Rename(ofile.Name(), outSb.String()); renameErr != nil {
-		log.Fatal("Error renaming", ofile.Name(), "to", outSb.String())
-	}
 	log.Println("Reduce Task Complete: ", coordinatorResponse.TaskNumber)
 }
 //

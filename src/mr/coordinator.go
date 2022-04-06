@@ -10,14 +10,16 @@ import "sync"
 import "time"
 import "strconv"
 import "strings"
+import "regexp"
 
 type Coordinator struct {
-	mu sync.Mutex
+	mu sync.RWMutex
 	mapTasks map[string]Task
 	reduceTasks map[string]Task
 	mappingFinished bool
 	reducingFinished bool
 	reduceTasksCount int
+	reduceFileNamesToProcess map[int][]string
 }
 
 type Task struct {
@@ -27,19 +29,46 @@ type Task struct {
 	done bool
 }
 
+func(c *Coordinator) HandleWorkerDoneRequest(workerRequest *WorkerRequest, coordinatorResponse *CoordinatorResponse) error {
+		
+	for i:=0; i < c.reduceTasksCount; i++ {
+		var sb strings.Builder
+		sb.WriteString("^mr-")
+		sb.WriteString(strconv.Itoa(workerRequest.TaskNumber))
+		sb.WriteString("-")
+		sb.WriteString(strconv.Itoa(i))
+		newReduceFiles := filter(workerRequest.CompletedIntermediateFiles, func(filename string) bool {
+			matched, err := regexp.MatchString(sb.String(), filename)
+			if err != nil {
+				log.Println("Error matching files for reduce task", strconv.Itoa(i))
+				return false
+			}
+			return matched
+
+		})
+		if len(newReduceFiles)>0 {
+			c.mu.Lock()
+			c.reduceFileNamesToProcess[i] = append(c.reduceFileNamesToProcess[i], newReduceFiles...)
+			c.mu.Unlock()
+		}
+	}
+
+	c.markTaskAsDone(workerRequest.CompletedInputFile, true)
+	return nil
+}
+
 func (c *Coordinator) HandleWorkerRequest(workerRequest *WorkerRequest, coordinatorResponse *CoordinatorResponse) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
 	coordinatorResponse.ReduceTasks = c.reduceTasksCount
+	c.mu.RUnlock()
 	mappingTasksStillInProgress := false
-	if c.mappingFinished == false {
+	if c.isMappingFinished() == false {
 		for fileName, task := range c.mapTasks {
 			if task.done == false && task.progressing == false {	
 				coordinatorResponse.IsMapTask = true
-				coordinatorResponse.FileNamesToProcess = []string{fileName}
+				coordinatorResponse.MapFileNameToProcess = fileName
 				coordinatorResponse.Wait = false
-				coordinatorResponse.TaskNumber = c.mapTasks[fileName].id
-				coordinatorResponse.ExpectedDoneFileName =c.mapTasks[fileName].expectedDoneFileName
+				coordinatorResponse.TaskNumber = task.id
 				go c.monitorTask(fileName, true)
 				return nil
 			} else if task.done == false && task.progressing == true {
@@ -51,19 +80,23 @@ func (c *Coordinator) HandleWorkerRequest(workerRequest *WorkerRequest, coordina
 	if mappingTasksStillInProgress == true {
 		coordinatorResponse.Wait = true
 		return nil
+	} else {
+		log.Println("Mapping finished")
+		c.mu.Lock()
+		c.mappingFinished = true
+		c.mu.Unlock()
 	}
 	
-	log.Println("Mapping finished")
-	c.mappingFinished = true
 
 	reduceTasksStillInProgress := false
-	if c.reducingFinished == false {
+	if c.Done() == false {
 		for fileName, task := range c.reduceTasks {
 			if task.done == false && task.progressing == false {
 				coordinatorResponse.IsMapTask = false
 				coordinatorResponse.Wait = false
-				coordinatorResponse.TaskNumber = c.reduceTasks[fileName].id
-				coordinatorResponse.ExpectedDoneFileName =c.reduceTasks[fileName].expectedDoneFileName
+				coordinatorResponse.TaskNumber = task.id
+				coordinatorResponse.ReduceFilesToProcess = c.getReduceFilesToProcess(task.id)
+				coordinatorResponse.ExpectedDoneFileName = task.expectedDoneFileName
 				go c.monitorTask(fileName, false)
 				return nil;
 			} else if task.done == false && task.progressing == true {
@@ -75,47 +108,113 @@ func (c *Coordinator) HandleWorkerRequest(workerRequest *WorkerRequest, coordina
 	if reduceTasksStillInProgress == true {
 		coordinatorResponse.Wait = true
 		return nil
+	} else {
+		log.Println("Reducing finished")
+		c.mu.Lock()
+		c.reducingFinished = true
+		c.mu.Unlock()
+		return errors.New("No work remaining")
 	}
-
-	log.Println("Reducing finished")
-	c.reducingFinished = true
-	return errors.New("No work remaining")
 }
 
 func (c *Coordinator) monitorTask(fileName string, isMapTask bool){
-	var task Task
-	if isMapTask {
-		task = c.mapTasks[fileName]
-	} else {
-		task = c.reduceTasks[fileName]
-	} 
+	c.markTaskAsProgressing(fileName, isMapTask)
 	
-	task.progressing = true
-	c.updateTask(fileName, task, isMapTask)
-
-	for i:=0; i <20; i++ {
-		time.Sleep(500 * time.Millisecond)
-		file, err := os.Open(task.expectedDoneFileName)
-		defer file.Close()
-		if err == nil {
-			task.done = true
-			c.updateTask(fileName, task, isMapTask)
-			return	
-		} 
+	for i:=0; i <10; i++ {
+		time.Sleep(1000 * time.Millisecond)
+		if isMapTask == true {
+			task := c.getMapTask(fileName)
+			if task.done == true {
+				return
+			}
+		} else {
+			task := c.getReduceTask(fileName)
+			file, err := os.Open(task.expectedDoneFileName)
+			file.Close()
+			if err == nil {
+				c.markTaskAsDone(fileName, false)
+				return	
+			} 
+		}
 	}
 
-	task.progressing = false
-	c.updateTask(fileName, task, isMapTask)
+	c.markTaskAsNotProgressing(fileName, isMapTask)
 }
 
-func (c *Coordinator) updateTask(fileName string, task Task, isMapTask bool){
+func (c *Coordinator) isMappingFinished() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.mappingFinished
+}
+
+func (c *Coordinator) getReduceFilesToProcess(taskId int) []string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.reduceFileNamesToProcess[taskId]
+}
+
+func (c *Coordinator) markTaskAsDone(fileName string, isMapTask bool){
+	if isMapTask {
+		task := c.getMapTask(fileName)
+		task.done = true
+		c.setMapTask(fileName, task)
+	} else {
+		task := c.getReduceTask(fileName)
+		task.done = true
+		c.setReduceTask(fileName, task)
+	}
+}
+
+func (c *Coordinator) markTaskAsProgressing(fileName string, isMapTask bool) Task{
+	if isMapTask {
+		task := c.getMapTask(fileName)
+		task.progressing = true
+		c.setMapTask(fileName, task)
+		return task
+	} else {
+		task := c.getReduceTask(fileName)
+		task.progressing = true
+		c.setReduceTask(fileName, task)
+		return task
+	}
+}
+
+func (c *Coordinator) markTaskAsNotProgressing(fileName string, isMapTask bool) Task{
+	if isMapTask {
+		task := c.getMapTask(fileName)
+		task.progressing = false
+		c.setMapTask(fileName, task)
+		return task
+	} else {
+		task := c.getReduceTask(fileName)
+		task.progressing = false
+		c.setReduceTask(fileName, task)
+		return task
+	}
+}
+
+func (c *Coordinator) getMapTask(fileName string) Task {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.mapTasks[fileName]
+}
+
+func (c *Coordinator) setMapTask(fileName string, task Task) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if isMapTask {
-		c.mapTasks[fileName] = task
-	} else {
-		c.reduceTasks[fileName] = task
-	}
+	c.mapTasks[fileName] = task
+}
+
+func (c *Coordinator) getReduceTask(fileName string) Task {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.reduceTasks[fileName]
+}
+
+func (c *Coordinator) setReduceTask(fileName string, task Task) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.reduceTasks[fileName] = task
 }
 
 func (c *Coordinator) server() {
@@ -132,22 +231,17 @@ func (c *Coordinator) server() {
 
 // check if the entire job has finished.
 func (c *Coordinator) Done() bool {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.reducingFinished
 }
 
 // main/mrcoordinator.go calls this function.
 func MakeCoordinator(files []string, reduceTasks int) *Coordinator {
-	c := Coordinator{mapTasks: make(map[string]Task), reduceTasks: make(map[string]Task), reduceTasksCount: reduceTasks}
+	c := Coordinator{mapTasks: make(map[string]Task), reduceTasks: make(map[string]Task), reduceTasksCount: reduceTasks, reduceFileNamesToProcess: make(map[int][]string)}
 	
 	for index, filename := range files{
-		var sbMap strings.Builder
-		sbMap.WriteString("map-function-task-")
-		sbMap.WriteString(strconv.Itoa(index))
-		sbMap.WriteString("-done")
-		expectedDoneMapFileName:= sbMap.String()
-		c.mapTasks[filename]= Task{id: index, done: false, expectedDoneFileName: expectedDoneMapFileName}
+		c.mapTasks[filename]= Task{id: index, done: false}
 	}
 
 	for i:=0; i	< reduceTasks; i++ {
@@ -161,3 +255,14 @@ func MakeCoordinator(files []string, reduceTasks int) *Coordinator {
 	c.server()
 	return &c
 }
+
+func filter(arr []string, cond func(string) bool) []string {
+	result := []string{}
+	for i := range arr {
+	  if cond(arr[i]) {
+		result = append(result, arr[i])
+	  }
+	}
+	return result
+ }
+
