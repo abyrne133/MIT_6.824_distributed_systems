@@ -42,18 +42,16 @@ func Worker(mapf func(string, string) []KeyValue,
 
 func work(mapf func(string, string) []KeyValue,
 	reducef func(string, []string) string) {
-		workerRequest := WorkerRequest{WorkerId: time.Now().Format(time.RFC850)}
+		workerRequest := WorkerRequest{}
 		coordinatorResponse := CoordinatorResponse{}
 			
 		ok := call("Coordinator.HandleWorkerRequest", &workerRequest, &coordinatorResponse)
 		
 		if !ok {
-			log.Println("Work Request failed, worker Id:", workerRequest.WorkerId)
 			os.Exit(1);
 		}
 
 		if coordinatorResponse.Wait == true {
-			log.Println("sleeping")
 			time.Sleep(100 * time.Millisecond)
 			work(mapf, reducef)
 		}
@@ -70,7 +68,7 @@ func work(mapf func(string, string) []KeyValue,
 
 func mapWork(mapf func(string, string) []KeyValue, coordinatorResponse CoordinatorResponse){
 	
-	filename := coordinatorResponse.MapFileNameToProcess
+	filename := coordinatorResponse.FilesToProcess[0]
 	file, err := os.Open(filename)
 	if err != nil {
 		log.Fatalf("cannot open %v", filename)
@@ -119,20 +117,17 @@ func mapWork(mapf func(string, string) []KeyValue, coordinatorResponse Coordinat
 		}
 	}
 
-	workerDoneRequest := WorkerRequest{WorkerId: time.Now().Format(time.RFC850), TaskNumber: coordinatorResponse.TaskNumber, CompletedIntermediateFiles: completedMapFiles, CompletedInputFile: coordinatorResponse.MapFileNameToProcess}
+	workerDoneRequest := WorkerRequest{TaskNumber: coordinatorResponse.TaskNumber, CompletedIntermediateFiles: completedMapFiles, CompletedInputFile: coordinatorResponse.FilesToProcess[0]}
 	workerDoneCoordinatorResponse := CoordinatorResponse{}
 	ok := call("Coordinator.HandleWorkerDoneRequest", &workerDoneRequest, &workerDoneCoordinatorResponse)
 	if !ok {
-		log.Println("WorkerDoneRequest failed, worker Id:", workerDoneRequest.WorkerId)
 		os.Exit(1);
-	}
-	log.Println("Map Task Complete: ", coordinatorResponse.TaskNumber)
-	
+	}	
 }
 
 func reduceWork(reducef func(string, []string) string, coordinatorResponse CoordinatorResponse){
 	kva := []KeyValue{}
-	for _, fileName := range coordinatorResponse.ReduceFilesToProcess {
+	for _, fileName := range coordinatorResponse.FilesToProcess {
 		file, err:= os.Open(fileName)	
 		if err != nil {
 			log.Fatalln("Could not open file", fileName)
@@ -177,7 +172,6 @@ func reduceWork(reducef func(string, []string) string, coordinatorResponse Coord
 
 	ofile.Close()
 	os.Rename(ofile.Name(), coordinatorResponse.ExpectedDoneFileName)
-	log.Println("Reduce Task Complete: ", coordinatorResponse.TaskNumber)
 }
 //
 // send an RPC request to the coordinator, wait for the response.

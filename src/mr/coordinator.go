@@ -14,16 +14,17 @@ import "regexp"
 
 type Coordinator struct {
 	mu sync.RWMutex
-	mapTasks map[string]Task
-	reduceTasks map[string]Task
+	mapTasks map[int]Task
+	reduceTasks map[int]Task
 	mappingFinished bool
 	reducingFinished bool
+	mapTasksCount int
 	reduceTasksCount int
-	reduceFileNamesToProcess map[int][]string
 }
 
 type Task struct {
 	id int
+	fileNamesToProcess []string
 	expectedDoneFileName string
 	progressing bool
 	done bool
@@ -47,13 +48,13 @@ func(c *Coordinator) HandleWorkerDoneRequest(workerRequest *WorkerRequest, coord
 
 		})
 		if len(newReduceFiles)>0 {
-			c.mu.Lock()
-			c.reduceFileNamesToProcess[i] = append(c.reduceFileNamesToProcess[i], newReduceFiles...)
-			c.mu.Unlock()
+			task := c.getReduceTask(i)
+			task.fileNamesToProcess = append(task.fileNamesToProcess, newReduceFiles...)
+			c.setReduceTask(i, task)
 		}
 	}
 
-	c.markTaskAsDone(workerRequest.CompletedInputFile, true)
+	c.markTaskAsDone(workerRequest.TaskNumber, true)
 	return nil
 }
 
@@ -61,84 +62,120 @@ func (c *Coordinator) HandleWorkerRequest(workerRequest *WorkerRequest, coordina
 	c.mu.RLock()
 	coordinatorResponse.ReduceTasks = c.reduceTasksCount
 	c.mu.RUnlock()
-	mappingTasksStillInProgress := false
 	if c.isMappingFinished() == false {
-		for fileName, task := range c.mapTasks {
-			if task.done == false && task.progressing == false {	
-				coordinatorResponse.IsMapTask = true
-				coordinatorResponse.MapFileNameToProcess = fileName
-				coordinatorResponse.Wait = false
-				coordinatorResponse.TaskNumber = task.id
-				go c.monitorTask(fileName, true)
-				return nil
-			} else if task.done == false && task.progressing == true {
-				mappingTasksStillInProgress = true
-			}
+		isTaskAssigned, err := c.assignMapTask(coordinatorResponse)
+		if err != nil {
+			coordinatorResponse.Wait = true
+			return nil
 		}
+		if isTaskAssigned == true {
+			return nil
+		} else {
+			c.mu.RLock()
+			isMappingFinished := c.mappingFinished
+			c.mu.RUnlock()
+			if isMappingFinished == false{
+				log.Println("Mapping Finished")
+				c.mu.Lock()
+				c.mappingFinished = true
+				c.mu.Unlock()
+			}
+		}		
 	}
-	
-	if mappingTasksStillInProgress == true {
-		coordinatorResponse.Wait = true
-		return nil
-	} else {
-		log.Println("Mapping finished")
-		c.mu.Lock()
-		c.mappingFinished = true
-		c.mu.Unlock()
-	}
-	
 
-	reduceTasksStillInProgress := false
 	if c.Done() == false {
-		for fileName, task := range c.reduceTasks {
-			if task.done == false && task.progressing == false {
-				coordinatorResponse.IsMapTask = false
-				coordinatorResponse.Wait = false
-				coordinatorResponse.TaskNumber = task.id
-				coordinatorResponse.ReduceFilesToProcess = c.getReduceFilesToProcess(task.id)
-				coordinatorResponse.ExpectedDoneFileName = task.expectedDoneFileName
-				go c.monitorTask(fileName, false)
-				return nil;
-			} else if task.done == false && task.progressing == true {
-				reduceTasksStillInProgress = true
-			}
+		isTaskAssigned, err := c.assignReduceTask(coordinatorResponse)
+		if err != nil {
+			coordinatorResponse.Wait = true
+			return nil
 		}
+		if isTaskAssigned == true {
+			return nil
+		} else {
+			c.mu.RLock()
+			isReducingFinished := c.reducingFinished
+			c.mu.RUnlock()
+			if isReducingFinished == false {
+				log.Println("Reducing Finished")
+				c.mu.Lock()
+				c.reducingFinished = true
+				c.mu.Unlock()
+			}
+		}		
 	}
 
-	if reduceTasksStillInProgress == true {
-		coordinatorResponse.Wait = true
-		return nil
+	return errors.New("No work remaining")
+}
+
+func (c *Coordinator) assignMapTask(coordinatorResponse *CoordinatorResponse) (bool, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	mappingTasksStillInProgress := false
+	for i, task := range c.mapTasks {
+		if task.done == false && task.progressing == false {	
+			coordinatorResponse.IsMapTask = true
+			coordinatorResponse.FilesToProcess = task.fileNamesToProcess
+			coordinatorResponse.Wait = false
+			coordinatorResponse.TaskNumber = task.id
+			go c.monitorTask(i, true)
+			return true, nil
+		} else if task.done == false && task.progressing == true {
+			mappingTasksStillInProgress = true
+		}
+	}
+	if mappingTasksStillInProgress == true {
+		return false, errors.New("Map tasks currently unavailable")
 	} else {
-		log.Println("Reducing finished")
-		c.mu.Lock()
-		c.reducingFinished = true
-		c.mu.Unlock()
-		return errors.New("No work remaining")
+		return false, nil
 	}
 }
 
-func (c *Coordinator) monitorTask(fileName string, isMapTask bool){
-	c.markTaskAsProgressing(fileName, isMapTask)
+func (c *Coordinator) assignReduceTask(coordinatorResponse *CoordinatorResponse) (bool, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	reduceTasksStillInProgress := false
+	for i, task := range c.reduceTasks {
+		if task.done == false && task.progressing == false {	
+			coordinatorResponse.IsMapTask = false
+			coordinatorResponse.FilesToProcess = task.fileNamesToProcess
+			coordinatorResponse.Wait = false
+			coordinatorResponse.TaskNumber = task.id
+			coordinatorResponse.ExpectedDoneFileName = task.expectedDoneFileName
+			go c.monitorTask(i, false)
+			return true, nil
+		} else if task.done == false && task.progressing == true {
+			reduceTasksStillInProgress = true
+		}
+	}
+	if reduceTasksStillInProgress == true {
+		return false, errors.New("Map tasks currently unavailable")
+	} else {
+		return false, nil
+	}
+}
+
+func (c *Coordinator) monitorTask(taskIndex int, isMapTask bool){
+	c.markTaskAsProgressing(taskIndex, isMapTask)
 	
 	for i:=0; i <10; i++ {
 		time.Sleep(1000 * time.Millisecond)
 		if isMapTask == true {
-			task := c.getMapTask(fileName)
+			task := c.getMapTask(taskIndex)
 			if task.done == true {
 				return
 			}
 		} else {
-			task := c.getReduceTask(fileName)
+			task := c.getReduceTask(taskIndex)
 			file, err := os.Open(task.expectedDoneFileName)
 			file.Close()
 			if err == nil {
-				c.markTaskAsDone(fileName, false)
+				c.markTaskAsDone(taskIndex, false)
 				return	
 			} 
 		}
 	}
 
-	c.markTaskAsNotProgressing(fileName, isMapTask)
+	c.markTaskAsNotProgressing(taskIndex, isMapTask)
 }
 
 func (c *Coordinator) isMappingFinished() bool {
@@ -147,74 +184,68 @@ func (c *Coordinator) isMappingFinished() bool {
 	return c.mappingFinished
 }
 
-func (c *Coordinator) getReduceFilesToProcess(taskId int) []string {
+func (c *Coordinator) markTaskAsDone(taskIndex int, isMapTask bool){
+	if isMapTask {
+		task := c.getMapTask(taskIndex)
+		task.done = true
+		c.setMapTask(taskIndex, task)
+	} else {
+		task := c.getReduceTask(taskIndex)
+		task.done = true
+		c.setReduceTask(taskIndex, task)
+	}
+}
+
+func (c *Coordinator) markTaskAsProgressing(taskIndex int, isMapTask bool) Task{
+	if isMapTask {
+		task := c.getMapTask(taskIndex)
+		task.progressing = true
+		c.setMapTask(taskIndex, task)
+		return task
+	} else {
+		task := c.getReduceTask(taskIndex)
+		task.progressing = true
+		c.setReduceTask(taskIndex, task)
+		return task
+	}
+}
+
+func (c *Coordinator) markTaskAsNotProgressing(taskIndex int, isMapTask bool) Task{
+	if isMapTask {
+		task := c.getMapTask(taskIndex)
+		task.progressing = false
+		c.setMapTask(taskIndex, task)
+		return task
+	} else {
+		task := c.getReduceTask(taskIndex)
+		task.progressing = false
+		c.setReduceTask(taskIndex, task)
+		return task
+	}
+}
+
+func (c *Coordinator) getMapTask(taskIndex int) Task {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.reduceFileNamesToProcess[taskId]
+	return c.mapTasks[taskIndex]
 }
 
-func (c *Coordinator) markTaskAsDone(fileName string, isMapTask bool){
-	if isMapTask {
-		task := c.getMapTask(fileName)
-		task.done = true
-		c.setMapTask(fileName, task)
-	} else {
-		task := c.getReduceTask(fileName)
-		task.done = true
-		c.setReduceTask(fileName, task)
-	}
-}
-
-func (c *Coordinator) markTaskAsProgressing(fileName string, isMapTask bool) Task{
-	if isMapTask {
-		task := c.getMapTask(fileName)
-		task.progressing = true
-		c.setMapTask(fileName, task)
-		return task
-	} else {
-		task := c.getReduceTask(fileName)
-		task.progressing = true
-		c.setReduceTask(fileName, task)
-		return task
-	}
-}
-
-func (c *Coordinator) markTaskAsNotProgressing(fileName string, isMapTask bool) Task{
-	if isMapTask {
-		task := c.getMapTask(fileName)
-		task.progressing = false
-		c.setMapTask(fileName, task)
-		return task
-	} else {
-		task := c.getReduceTask(fileName)
-		task.progressing = false
-		c.setReduceTask(fileName, task)
-		return task
-	}
-}
-
-func (c *Coordinator) getMapTask(fileName string) Task {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.mapTasks[fileName]
-}
-
-func (c *Coordinator) setMapTask(fileName string, task Task) {
+func (c *Coordinator) setMapTask(taskIndex int, task Task) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.mapTasks[fileName] = task
+	c.mapTasks[taskIndex] = task
 }
 
-func (c *Coordinator) getReduceTask(fileName string) Task {
+func (c *Coordinator) getReduceTask(taskIndex int) Task {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.reduceTasks[fileName]
+	return c.reduceTasks[taskIndex]
 }
 
-func (c *Coordinator) setReduceTask(fileName string, task Task) {
+func (c *Coordinator) setReduceTask(taskIndex int, task Task) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.reduceTasks[fileName] = task
+	c.reduceTasks[taskIndex] = task
 }
 
 func (c *Coordinator) server() {
@@ -238,10 +269,10 @@ func (c *Coordinator) Done() bool {
 
 // main/mrcoordinator.go calls this function.
 func MakeCoordinator(files []string, reduceTasks int) *Coordinator {
-	c := Coordinator{mapTasks: make(map[string]Task), reduceTasks: make(map[string]Task), reduceTasksCount: reduceTasks, reduceFileNamesToProcess: make(map[int][]string)}
+	c := Coordinator{mapTasks: make(map[int]Task), reduceTasks: make(map[int]Task), mapTasksCount: len(files), reduceTasksCount: reduceTasks}
 	
-	for index, filename := range files{
-		c.mapTasks[filename]= Task{id: index, done: false}
+	for i, filename := range files{
+		c.mapTasks[i]= Task{id: i, progressing: false, done: false, fileNamesToProcess: []string{filename} }
 	}
 
 	for i:=0; i	< reduceTasks; i++ {
@@ -249,7 +280,7 @@ func MakeCoordinator(files []string, reduceTasks int) *Coordinator {
 		sbReduce.WriteString("mr-out-")
 		sbReduce.WriteString(strconv.Itoa(i))
 		expectedDoneReduceFileName:= sbReduce.String()
-		c.reduceTasks[expectedDoneReduceFileName]= Task{id: i, done: false, expectedDoneFileName: expectedDoneReduceFileName}
+		c.reduceTasks[i]= Task{id: i, progressing: false, done: false, expectedDoneFileName: expectedDoneReduceFileName}
 	}
 
 	c.server()

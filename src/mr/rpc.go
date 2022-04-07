@@ -4,7 +4,6 @@ import "os"
 import "strconv"
 
 type WorkerRequest struct {
-	WorkerId string
 	TaskNumber int
 	CompletedIntermediateFiles []string
 	CompletedInputFile string
@@ -14,8 +13,7 @@ type CoordinatorResponse struct {
 	TaskNumber int
 	ReduceTasks int
 	IsMapTask bool // false indicates reduce task
-	MapFileNameToProcess string
-	ReduceFilesToProcess []string
+	FilesToProcess []string
 	ExpectedDoneFileName string
 	Wait bool
 }
