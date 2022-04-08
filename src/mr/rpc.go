@@ -7,15 +7,13 @@ type WorkerRequest struct {
 	TaskNumber int
 	IsMapTask bool
 	CompletedIntermediateFiles []string
-	CompletedInputFile string
 }
 
 type CoordinatorResponse struct {
 	TaskNumber int
 	ReduceTasks int
 	IsMapTask bool // false indicates reduce task
-	FilesToProcess []string
-	ExpectedDoneFileName string
+	FilesToProcess []string // currently single file for Map Task
 	Wait bool
 }
 

@@ -119,7 +119,7 @@ func mapWork(mapf func(string, string) []KeyValue, coordinatorResponse Coordinat
 		}
 	}
 
-	workerDoneRequest := WorkerRequest{TaskNumber: coordinatorResponse.TaskNumber, IsMapTask: true, CompletedIntermediateFiles: completedMapFiles, CompletedInputFile: coordinatorResponse.FilesToProcess[0]}
+	workerDoneRequest := WorkerRequest{TaskNumber: coordinatorResponse.TaskNumber, IsMapTask: true, CompletedIntermediateFiles: completedMapFiles}
 	ok := call("Coordinator.HandleWorkerDoneRequest", &workerDoneRequest, nil)
 	if !ok {
 		os.Exit(1);
