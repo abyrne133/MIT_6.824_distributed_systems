@@ -59,99 +59,67 @@ func(c *Coordinator) HandleWorkerDoneRequest(workerRequest *WorkerRequest, coord
 }
 
 func (c *Coordinator) HandleWorkerRequest(workerRequest *WorkerRequest, coordinatorResponse *CoordinatorResponse) error {
-	c.mu.RLock()
-	coordinatorResponse.ReduceTasks = c.reduceTasksCount
-	c.mu.RUnlock()
 	if c.isMappingFinished() == false {
-		isTaskAssigned, err := c.assignMapTask(coordinatorResponse)
-		if err != nil {
-			coordinatorResponse.Wait = true
+		if c.assignTask(coordinatorResponse, true) == true {
 			return nil
-		}
-		if isTaskAssigned == true {
-			return nil
-		} else {
-			c.mu.RLock()
-			isMappingFinished := c.mappingFinished
-			c.mu.RUnlock()
-			if isMappingFinished == false{
-				log.Println("Mapping Finished")
-				c.mu.Lock()
-				c.mappingFinished = true
-				c.mu.Unlock()
-			}
-		}		
+		}	
 	}
 
 	if c.Done() == false {
-		isTaskAssigned, err := c.assignReduceTask(coordinatorResponse)
-		if err != nil {
-			coordinatorResponse.Wait = true
+		if c.assignTask(coordinatorResponse, false) == true {
 			return nil
-		}
-		if isTaskAssigned == true {
-			return nil
-		} else {
-			c.mu.RLock()
-			isReducingFinished := c.reducingFinished
-			c.mu.RUnlock()
-			if isReducingFinished == false {
-				log.Println("Reducing Finished")
-				c.mu.Lock()
-				c.reducingFinished = true
-				c.mu.Unlock()
-			}
 		}		
 	}
 
 	return errors.New("No work remaining")
 }
 
-func (c *Coordinator) assignMapTask(coordinatorResponse *CoordinatorResponse) (bool, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	mappingTasksStillInProgress := false
-	for i, task := range c.mapTasks {
+func (c *Coordinator) assignTask(coordinatorResponse *CoordinatorResponse, isMapTask bool) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	var tasks map[int]Task
+	if isMapTask == true {
+		tasks = c.mapTasks
+	} else {
+		tasks = c.reduceTasks
+	}
+	tasksStillInProgress := false
+	for i, task := range tasks {
 		if task.done == false && task.progressing == false {	
-			coordinatorResponse.IsMapTask = true
+			coordinatorResponse.IsMapTask = isMapTask
 			coordinatorResponse.FilesToProcess = task.fileNamesToProcess
 			coordinatorResponse.Wait = false
 			coordinatorResponse.TaskNumber = task.id
-			go c.monitorTask(i, true)
-			return true, nil
+			coordinatorResponse.ReduceTasks = c.reduceTasksCount
+			if isMapTask == false {
+				coordinatorResponse.ExpectedDoneFileName = task.expectedDoneFileName
+			}
+			go c.monitorTask(i, isMapTask)
+			return true
 		} else if task.done == false && task.progressing == true {
-			mappingTasksStillInProgress = true
+			tasksStillInProgress = true
 		}
 	}
-	if mappingTasksStillInProgress == true {
-		return false, errors.New("Map tasks currently unavailable")
-	} else {
-		return false, nil
-	}
-}
+	if tasksStillInProgress == true {
+		coordinatorResponse.Wait = true
+		return true
+	} 
 
-func (c *Coordinator) assignReduceTask(coordinatorResponse *CoordinatorResponse) (bool, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	reduceTasksStillInProgress := false
-	for i, task := range c.reduceTasks {
-		if task.done == false && task.progressing == false {	
-			coordinatorResponse.IsMapTask = false
-			coordinatorResponse.FilesToProcess = task.fileNamesToProcess
-			coordinatorResponse.Wait = false
-			coordinatorResponse.TaskNumber = task.id
-			coordinatorResponse.ExpectedDoneFileName = task.expectedDoneFileName
-			go c.monitorTask(i, false)
-			return true, nil
-		} else if task.done == false && task.progressing == true {
-			reduceTasksStillInProgress = true
+	if isMapTask == true {
+		isMappingFinished := c.mappingFinished
+		if isMappingFinished == false {
+			log.Println("Mapping Finished")
+			c.mappingFinished = true
+		}
+	} else {
+		isReducingFinished := c.reducingFinished
+		if isReducingFinished == false {
+			log.Println("Reducing Finished")
+			c.reducingFinished = true
 		}
 	}
-	if reduceTasksStillInProgress == true {
-		return false, errors.New("Map tasks currently unavailable")
-	} else {
-		return false, nil
-	}
+	
+	return false	
 }
 
 func (c *Coordinator) monitorTask(taskIndex int, isMapTask bool){
