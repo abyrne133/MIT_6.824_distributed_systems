@@ -1,18 +1,28 @@
 package mr
 
-import "fmt"
 import "log"
 import "net/rpc"
 import "hash/fnv"
+import "io/ioutil"
+import "os"
+import "time"
+import "sort"
+import "strings"
+import "strconv"
+import "encoding/json"
+import "fmt"
 
-
-//
 // Map functions return a slice of KeyValue.
-//
 type KeyValue struct {
 	Key   string
 	Value string
 }
+
+// for sorting by key.
+type ByKey []KeyValue
+func (a ByKey) Len() int           { return len(a) }
+func (a ByKey) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByKey) Less(i, j int) bool { return a[i].Key < a[j].Key }
 
 //
 // use ihash(key) % NReduce to choose the reduce
@@ -24,56 +34,167 @@ func ihash(key string) int {
 	return int(h.Sum32() & 0x7fffffff)
 }
 
-
-//
 // main/mrworker.go calls this function.
-//
 func Worker(mapf func(string, string) []KeyValue,
 	reducef func(string, []string) string) {
-
-	// Your worker implementation here.
-
-	// uncomment to send the Example RPC to the coordinator.
-	// CallExample()
-
+		work(mapf, reducef)
 }
 
-//
-// example function to show how to make an RPC call to the coordinator.
-//
-// the RPC argument and reply types are defined in rpc.go.
-//
-func CallExample() {
+func work(mapf func(string, string) []KeyValue,
+	reducef func(string, []string) string) {
+		workerRequest := WorkerRequest{}
+		coordinatorResponse := CoordinatorResponse{}
+			
+		ok := call("Coordinator.HandleWorkerRequest", &workerRequest, &coordinatorResponse)
+		
+		if !ok {
+			os.Exit(1);
+		}
 
-	// declare an argument structure.
-	args := ExampleArgs{}
+		if coordinatorResponse.Wait == true {
+			time.Sleep(100 * time.Millisecond)
+			work(mapf, reducef)
+		}
 
-	// fill in the argument(s).
-	args.X = 99
+		if coordinatorResponse.IsMapTask == true {
+			mapWork(mapf, coordinatorResponse)
+		} else {
+			reduceWork(reducef, coordinatorResponse)
+		}
 
-	// declare a reply structure.
-	reply := ExampleReply{}
 
-	// send the RPC request, wait for the reply.
-	// the "Coordinator.Example" tells the
-	// receiving server that we'd like to call
-	// the Example() method of struct Coordinator.
-	ok := call("Coordinator.Example", &args, &reply)
-	if ok {
-		// reply.Y should be 100.
-		fmt.Printf("reply.Y %v\n", reply.Y)
-	} else {
-		fmt.Printf("call failed!\n")
+		work(mapf, reducef)
+}
+
+func mapWork(mapf func(string, string) []KeyValue, coordinatorResponse CoordinatorResponse){
+	
+	filename := coordinatorResponse.FilesToProcess[0]
+	file, err := os.Open(filename)
+	if err != nil {
+		log.Fatalf("cannot open %v", filename)
 	}
+	content, err := ioutil.ReadAll(file)
+	if err != nil {
+		log.Fatalf("cannot read %v", filename)
+	}
+	if err := file.Close(); err != nil {
+		log.Fatalf("Could not close %v", filename)
+	}
+	mapData := mapf(filename, string(content))
+
+	sort.Sort(ByKey(mapData))
+
+	mapDataByReduceNumber := make(map[int][]KeyValue)
+	for _, keyValueArray := range mapData {
+		reduceTaskNumber := ihash(keyValueArray.Key) % coordinatorResponse.ReduceTasks
+		mapDataByReduceNumber[reduceTaskNumber] = append(mapDataByReduceNumber[reduceTaskNumber], keyValueArray)
+	}
+
+	completedMapFiles := []string{}
+	for reduceTaskNumber, keyValueArray := range mapDataByReduceNumber {
+		var sb strings.Builder
+		sb.WriteString("mr-")
+		sb.WriteString(strconv.Itoa(coordinatorResponse.TaskNumber))
+		sb.WriteString("-")
+		sb.WriteString(strconv.Itoa(reduceTaskNumber))
+		fileName := sb.String()
+		file, err := ioutil.TempFile("",fileName)
+		if err != nil {
+			log.Fatal(err)
+		}
+		enc := json.NewEncoder(file)
+		for _, keyValue := range keyValueArray {
+			encodeErr:= enc.Encode(&keyValue)
+			if encodeErr != nil {
+				log.Fatal(err)
+			}
+		}
+		if err := file.Close(); err != nil {
+			log.Fatal(err)
+		} else {
+			if err := os.Rename(file.Name(), fileName); err != nil {
+				log.Fatal("Could not rename map file", err)
+			}
+			completedMapFiles = append(completedMapFiles, fileName)
+		}
+	}
+
+	workerDoneRequest := WorkerRequest{TaskNumber: coordinatorResponse.TaskNumber, IsMapTask: true, CompletedIntermediateFiles: completedMapFiles}
+	ok := call("Coordinator.HandleWorkerDoneRequest", &workerDoneRequest, nil)
+	if !ok {
+		os.Exit(1);
+	}	
 }
 
+func reduceWork(reducef func(string, []string) string, coordinatorResponse CoordinatorResponse){
+	kva := []KeyValue{}
+	for _, fileName := range coordinatorResponse.FilesToProcess {
+		file, err:= os.Open(fileName)	
+		if err != nil {
+			log.Fatalln("Could not open file", fileName)
+		} else {
+			dec := json.NewDecoder(file)
+			for {
+				var kv KeyValue
+				if err := dec.Decode(&kv); err != nil {
+				  break
+				}
+				kva = append(kva, kv)
+			  }
+		}
+		if err := file.Close(); err != nil {
+			log.Fatalln("Could not close file", err)
+		}	
+	}
+
+	sort.Sort(ByKey(kva))
+
+	var sb strings.Builder
+	sb.WriteString("mr-out-")
+	sb.WriteString(strconv.Itoa(coordinatorResponse.TaskNumber))
+	outputFileName := sb.String()
+	ofile, err := ioutil.TempFile("", outputFileName)
+	defer ofile.Close()
+	defer os.Remove(ofile.Name())
+	if err != nil {
+		log.Fatalln("Could not open output file", outputFileName)
+		return
+	}
+	i := 0
+	for i < len(kva) {
+		j := i + 1
+		for j < len(kva) && kva[j].Key == kva[i].Key {
+			j++
+		}
+		values := []string{}
+		for k := i; k < j; k++ {
+			values = append(values, kva[k].Value)
+		}
+		output := reducef(kva[i].Key, values)
+
+		fmt.Fprintf(ofile, "%v %v\n", kva[i].Key, output)
+
+		i = j
+	}
+
+	if err:= os.Rename(ofile.Name(), outputFileName); err != nil {
+		log.Fatal("Could not close reduce file")
+	} else {
+		workerDoneRequest := WorkerRequest{TaskNumber: coordinatorResponse.TaskNumber, IsMapTask: false}
+		ok := call("Coordinator.HandleWorkerDoneRequest", &workerDoneRequest, nil)
+		if !ok {
+			os.Exit(1);
+		}	
+	}
+
+	
+}
 //
 // send an RPC request to the coordinator, wait for the response.
 // usually returns true.
 // returns false if something goes wrong.
 //
 func call(rpcname string, args interface{}, reply interface{}) bool {
-	// c, err := rpc.DialHTTP("tcp", "127.0.0.1"+":1234")
 	sockname := coordinatorSock()
 	c, err := rpc.DialHTTP("unix", sockname)
 	if err != nil {
@@ -86,6 +207,6 @@ func call(rpcname string, args interface{}, reply interface{}) bool {
 		return true
 	}
 
-	fmt.Println(err)
+	log.Println(err)
 	return false
 }
