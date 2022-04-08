@@ -112,14 +112,15 @@ func mapWork(mapf func(string, string) []KeyValue, coordinatorResponse Coordinat
 		if err := file.Close(); err != nil {
 			log.Fatal(err)
 		} else {
-			os.Rename(file.Name(), fileName)
+			if err := os.Rename(file.Name(), fileName); err != nil {
+				log.Fatal("Could not rename map file", err)
+			}
 			completedMapFiles = append(completedMapFiles, fileName)
 		}
 	}
 
-	workerDoneRequest := WorkerRequest{TaskNumber: coordinatorResponse.TaskNumber, CompletedIntermediateFiles: completedMapFiles, CompletedInputFile: coordinatorResponse.FilesToProcess[0]}
-	workerDoneCoordinatorResponse := CoordinatorResponse{}
-	ok := call("Coordinator.HandleWorkerDoneRequest", &workerDoneRequest, &workerDoneCoordinatorResponse)
+	workerDoneRequest := WorkerRequest{TaskNumber: coordinatorResponse.TaskNumber, IsMapTask: true, CompletedIntermediateFiles: completedMapFiles, CompletedInputFile: coordinatorResponse.FilesToProcess[0]}
+	ok := call("Coordinator.HandleWorkerDoneRequest", &workerDoneRequest, nil)
 	if !ok {
 		os.Exit(1);
 	}	
@@ -148,9 +149,15 @@ func reduceWork(reducef func(string, []string) string, coordinatorResponse Coord
 
 	sort.Sort(ByKey(kva))
 
-	ofile, err := ioutil.TempFile("", coordinatorResponse.ExpectedDoneFileName)
+	var sb strings.Builder
+	sb.WriteString("mr-out-")
+	sb.WriteString(strconv.Itoa(coordinatorResponse.TaskNumber))
+	outputFileName := sb.String()
+	ofile, err := ioutil.TempFile("", outputFileName)
+	defer ofile.Close()
+	defer os.Remove(ofile.Name())
 	if err != nil {
-		log.Fatalln("Could not open output file", coordinatorResponse.ExpectedDoneFileName)
+		log.Fatalln("Could not open output file", outputFileName)
 		return
 	}
 	i := 0
@@ -170,8 +177,17 @@ func reduceWork(reducef func(string, []string) string, coordinatorResponse Coord
 		i = j
 	}
 
-	ofile.Close()
-	os.Rename(ofile.Name(), coordinatorResponse.ExpectedDoneFileName)
+	if err:= os.Rename(ofile.Name(), outputFileName); err != nil {
+		log.Fatal("Could not close reduce file")
+	} else {
+		workerDoneRequest := WorkerRequest{TaskNumber: coordinatorResponse.TaskNumber, IsMapTask: false}
+		ok := call("Coordinator.HandleWorkerDoneRequest", &workerDoneRequest, nil)
+		if !ok {
+			os.Exit(1);
+		}	
+	}
+
+	
 }
 //
 // send an RPC request to the coordinator, wait for the response.

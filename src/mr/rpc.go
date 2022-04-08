@@ -5,6 +5,7 @@ import "strconv"
 
 type WorkerRequest struct {
 	TaskNumber int
+	IsMapTask bool
 	CompletedIntermediateFiles []string
 	CompletedInputFile string
 }

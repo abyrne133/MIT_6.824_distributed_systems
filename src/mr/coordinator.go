@@ -25,36 +25,37 @@ type Coordinator struct {
 type Task struct {
 	id int
 	fileNamesToProcess []string
-	expectedDoneFileName string
 	progressing bool
 	done bool
 }
 
 func(c *Coordinator) HandleWorkerDoneRequest(workerRequest *WorkerRequest, coordinatorResponse *CoordinatorResponse) error {
-		
-	for i:=0; i < c.reduceTasksCount; i++ {
-		var sb strings.Builder
-		sb.WriteString("^mr-")
-		sb.WriteString(strconv.Itoa(workerRequest.TaskNumber))
-		sb.WriteString("-")
-		sb.WriteString(strconv.Itoa(i))
-		newReduceFiles := filter(workerRequest.CompletedIntermediateFiles, func(filename string) bool {
-			matched, err := regexp.MatchString(sb.String(), filename)
-			if err != nil {
-				log.Println("Error matching files for reduce task", strconv.Itoa(i))
-				return false
-			}
-			return matched
+	if workerRequest.IsMapTask == true {
+		for i:=0; i < c.reduceTasksCount; i++ {
+			var sb strings.Builder
+			sb.WriteString("^mr-")
+			sb.WriteString(strconv.Itoa(workerRequest.TaskNumber))
+			sb.WriteString("-")
+			sb.WriteString(strconv.Itoa(i))
+			newReduceFiles := filter(workerRequest.CompletedIntermediateFiles, func(filename string) bool {
+				matched, err := regexp.MatchString(sb.String(), filename)
+				if err != nil {
+					log.Println("Error matching files for reduce task", strconv.Itoa(i))
+					return false
+				}
+				return matched
 
-		})
-		if len(newReduceFiles)>0 {
-			task := c.getReduceTask(i)
-			task.fileNamesToProcess = append(task.fileNamesToProcess, newReduceFiles...)
-			c.setReduceTask(i, task)
+			})
+			if len(newReduceFiles)>0 {
+				c.mu.Lock()
+				task := c.reduceTasks[i]
+				task.fileNamesToProcess = append(task.fileNamesToProcess, newReduceFiles...)
+				c.reduceTasks[i] = task
+				c.mu.Unlock()
+			}
 		}
 	}
-
-	c.markTaskAsDone(workerRequest.TaskNumber, true)
+	c.markTaskAsDone(workerRequest.TaskNumber, workerRequest.IsMapTask)
 	return nil
 }
 
@@ -91,8 +92,12 @@ func (c *Coordinator) assignTask(coordinatorResponse *CoordinatorResponse, isMap
 			coordinatorResponse.Wait = false
 			coordinatorResponse.TaskNumber = task.id
 			coordinatorResponse.ReduceTasks = c.reduceTasksCount
-			if isMapTask == false {
-				coordinatorResponse.ExpectedDoneFileName = task.expectedDoneFileName
+			if isMapTask == true {
+				task.progressing = true
+				c.mapTasks[i] = task
+			} else {
+				task.progressing = true
+				c.reduceTasks[i] = task
 			}
 			go c.monitorTask(i, isMapTask)
 			return true
@@ -123,27 +128,23 @@ func (c *Coordinator) assignTask(coordinatorResponse *CoordinatorResponse, isMap
 }
 
 func (c *Coordinator) monitorTask(taskIndex int, isMapTask bool){
-	c.markTaskAsProgressing(taskIndex, isMapTask)
-	
-	for i:=0; i <10; i++ {
-		time.Sleep(1000 * time.Millisecond)
-		if isMapTask == true {
-			task := c.getMapTask(taskIndex)
-			if task.done == true {
-				return
-			}
-		} else {
-			task := c.getReduceTask(taskIndex)
-			file, err := os.Open(task.expectedDoneFileName)
-			file.Close()
-			if err == nil {
-				c.markTaskAsDone(taskIndex, false)
-				return	
-			} 
-		}
+	time.Sleep(10 * time.Second)
+	var task Task
+	if isMapTask == true {
+		task = c.getMapTask(taskIndex)
+	} else {
+		task = c.getReduceTask(taskIndex)
+	}
+	if task.done == true {
+		return
 	}
 
-	c.markTaskAsNotProgressing(taskIndex, isMapTask)
+	task.progressing = false
+	if isMapTask == true {
+		c.setMapTask(taskIndex, task)
+	} else {
+		c.setReduceTask(taskIndex, task)
+	}
 }
 
 func (c *Coordinator) isMappingFinished() bool {
@@ -153,7 +154,7 @@ func (c *Coordinator) isMappingFinished() bool {
 }
 
 func (c *Coordinator) markTaskAsDone(taskIndex int, isMapTask bool){
-	if isMapTask {
+	if isMapTask == true {
 		task := c.getMapTask(taskIndex)
 		task.done = true
 		c.setMapTask(taskIndex, task)
@@ -161,34 +162,6 @@ func (c *Coordinator) markTaskAsDone(taskIndex int, isMapTask bool){
 		task := c.getReduceTask(taskIndex)
 		task.done = true
 		c.setReduceTask(taskIndex, task)
-	}
-}
-
-func (c *Coordinator) markTaskAsProgressing(taskIndex int, isMapTask bool) Task{
-	if isMapTask {
-		task := c.getMapTask(taskIndex)
-		task.progressing = true
-		c.setMapTask(taskIndex, task)
-		return task
-	} else {
-		task := c.getReduceTask(taskIndex)
-		task.progressing = true
-		c.setReduceTask(taskIndex, task)
-		return task
-	}
-}
-
-func (c *Coordinator) markTaskAsNotProgressing(taskIndex int, isMapTask bool) Task{
-	if isMapTask {
-		task := c.getMapTask(taskIndex)
-		task.progressing = false
-		c.setMapTask(taskIndex, task)
-		return task
-	} else {
-		task := c.getReduceTask(taskIndex)
-		task.progressing = false
-		c.setReduceTask(taskIndex, task)
-		return task
 	}
 }
 
@@ -244,11 +217,7 @@ func MakeCoordinator(files []string, reduceTasks int) *Coordinator {
 	}
 
 	for i:=0; i	< reduceTasks; i++ {
-		var sbReduce strings.Builder
-		sbReduce.WriteString("mr-out-")
-		sbReduce.WriteString(strconv.Itoa(i))
-		expectedDoneReduceFileName:= sbReduce.String()
-		c.reduceTasks[i]= Task{id: i, progressing: false, done: false, expectedDoneFileName: expectedDoneReduceFileName}
+		c.reduceTasks[i]= Task{id: i, progressing: false, done: false}
 	}
 
 	c.server()
