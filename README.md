@@ -4,22 +4,27 @@
 
 Directory: scr/main
 
-1. Remove previous output
-$ rm mr-out*
+1. Remove previous output.
+ ```$ rm mr-out*```
+
 2. Build word count plugin
-$ go build -race -buildmode=plugin ../mrapps/wc.go
+ ```$ go build -race -buildmode=plugin ../mrapps/wc.go```
+
 3. Run the coordinator / master with pg-* files as input
-$ go run -race mrcoordinator.go pg-*.txt
+```$ go run -race mrcoordinator.go pg-*.txt```
 
 4. Run several workers in seperate terminals
-$ go run -race mrworker.go wc.so
+```$ go run -race mrworker.go wc.so```
 
 When the workers and coordinator have finished, look at the output in mr-out-*. When you've completed the lab, the sorted union of the output files should match the sequential output, like this:
-$ cat mr-out-* | sort | more
-A 509
-ABOUT 2
-ACT 8
-...
+ ```$ cat mr-out-* | sort | more```
+ 
+ ```
+ A 509
+ ABOUT 2
+ ACT 8
+ ...
+```
 
 5. Test 20 times
-bash test-mr-many.sh 20
+```$ bash test-mr-many.sh 20```
