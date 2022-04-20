@@ -25,6 +25,8 @@ import (
 	//	"6.824/labgob"
 	"6.824/labrpc"
 	"math/rand"
+	crand "crypto/rand"
+	"math/big"
 )
 
 
@@ -55,7 +57,7 @@ type ApplyMsg struct {
 // A Go object implementing a single Raft peer.
 //
 type Raft struct {
-	mu        sync.RWMutex          // Lock to protect shared access to this peer's state
+	mu        sync.Mutex          // Lock to protect shared access to this peer's state
 	peers     []*labrpc.ClientEnd // RPC end points of all peers
 	persister *Persister          // Object to hold this peer's persisted state
 	me        int                 // this peer's index into peers[]
@@ -84,8 +86,8 @@ type AppendEntriesReply struct {
 // return currentTerm and whether this server
 // believes it is the leader.
 func (rf *Raft) GetState() (int, bool) {
-	rf.mu.RLock()
-	defer rf.mu.RUnlock()
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
 	return rf.currentTerm, rf.isLeader
 }
 
@@ -176,26 +178,50 @@ type RequestVoteReply struct {
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	currentTerm := rf.currentTerm
-	votedFor := rf.votedFor
-	DPrintf("Vote Request recieved on Raft %v from candidate %v", rf.me, args.CandidateId)
-	if args.Term >= currentTerm {
-		rf.currentTerm = args.Term
+	DPrintf("Vote Request (Received): Raft %v, Term %v, Other Raft: %v", rf.me, rf.currentTerm, args.CandidateId)
+	if args.Term < rf.currentTerm {
+		DPrintf("Vote Request (Rejected): Raft %v, Term %v, Other Raft: %v", rf.me, rf.currentTerm, args.CandidateId)
+		reply.Term = rf.currentTerm
+		reply.VoteGranted = false
+		return
+	} else if args.Term == rf.currentTerm && rf.votedFor == -1 {
+		DPrintf("Vote Request (Granted): Raft %v, Term %v, Other Raft: %v", rf.me, rf.currentTerm, args.CandidateId)
+		rf.lastReceivedCommunication = time.Now()
+		rf.votedFor = args.CandidateId
 		rf.isLeader = false
-		DPrintf("New term: %v identified, Raft %v marked as follower", rf.currentTerm, rf.me)
-		if (votedFor == -1 || votedFor == args.CandidateId) {
-			DPrintf("Vote Request granted on Raft %v from candidate %v with term %v", rf.me, args.CandidateId, args.Term)
-			rf.votedFor = args.CandidateId
+		reply.VoteGranted = true
+		reply.Term = rf.currentTerm
+		return
+	} else if args.Term == rf.currentTerm && rf.votedFor != -1 {
+		if rf.votedFor == rf.me {
+			DPrintf("Vote Request (Rejected - I am already the leader for this term): Raft %v, Term %v, Other Raft: %v", rf.me, rf.currentTerm, args.CandidateId)
+			reply.Term = rf.currentTerm
+			reply.VoteGranted = false
+			return
+		} else if rf.votedFor == args.CandidateId {
+			DPrintf("Vote Request (Granted Again): Raft %v, Term %v, Other Raft: %v", rf.me, rf.currentTerm, args.CandidateId)
 			rf.lastReceivedCommunication = time.Now()
+			rf.votedFor = args.CandidateId
+			rf.isLeader = false
 			reply.VoteGranted = true
-			reply.Term = args.Term
+			reply.Term = rf.currentTerm
+			return
+		} else {
+			DPrintf("Vote Request (Rejected - Leader already elected): Raft %v, Term %v, Other Raft: %v", rf.me, rf.currentTerm, args.CandidateId)
+			reply.Term = rf.currentTerm
+			reply.VoteGranted = false
 			return
 		}
+	} else if args.Term > rf.currentTerm {
+		DPrintf("Vote Request (Granted - New Term): Raft %v, Term %v, Other Raft: %v", rf.me, args.Term, args.CandidateId)
+		rf.lastReceivedCommunication = time.Now()
+		rf.votedFor = args.CandidateId
+		rf.currentTerm = args.Term
+		rf.isLeader = false
+		reply.VoteGranted = true
+		reply.Term = rf.currentTerm
+		return
 	} 
-	DPrintf("Vote Request rejected on Raft %v from candidate %v with term %v", rf.me, args.CandidateId, args.Term)
-	reply.Term = rf.currentTerm
-	reply.VoteGranted = false
-	return
 	// Your code here (2A, 2B).
 }
 
@@ -203,14 +229,22 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	if args.Term < rf.currentTerm {
+		DPrintf("Append Entries (Failure): Raft %v, Term %v, Other Raft: %v", rf.me, rf.currentTerm, args.LeaderId)
 		reply.Term = rf.currentTerm
 		reply.Success = false
+		return 
 	} else {
+		DPrintf("Append Entries (Success): Raft %v, Term %v, Other Raft: %v", rf.me, rf.currentTerm, args.LeaderId)
 		rf.lastReceivedCommunication = time.Now()
+		rf.isLeader = false
+		rf.currentTerm = args.Term
 		reply.Term = args.Term
 		reply.Success = true
-	}
-	return 
+		if args.Term > rf.currentTerm {
+			rf.votedFor = -1
+		}
+		return
+	} 
 }
 
 //
@@ -300,57 +334,59 @@ func (rf *Raft) killed() bool {
 
 func (rf *Raft) heartbeats(){
 	for rf.killed() == false {
-		rf.mu.RLock()
-		isLeader := rf.isLeader
-		rf.mu.RUnlock()
-		if isLeader == true {
+		rf.mu.Lock()
+		if rf.isLeader == true {
+			startedHeartbeatsTerm := rf.currentTerm
 			var waitGroup sync.WaitGroup
-			rf.mu.RLock()
+			replies := make([]*AppendEntriesReply, len(rf.peers))
 			appendEntriesArgs := &AppendEntriesArgs{Term: rf.currentTerm, LeaderId: rf.me}
-			rf.mu.RUnlock()
-			replies := []*AppendEntriesReply{}
-			for index, peer := range rf.peers {
-				if index != rf.me {
+			for i:=0; i < len(rf.peers) && rf.killed() == false; i++{
+				if i != rf.me {
 					waitGroup.Add(1)
-					go func(index int, peer *labrpc.ClientEnd){
+					go func(i int){
 						defer waitGroup.Done()
-						DPrintf("Sending heartbeat to server: %v", index)
 						reply := &AppendEntriesReply{}
-						rf.sendAppendEntries(index, appendEntriesArgs, reply)
-						rf.mu.Lock()
-						replies = append(replies, reply)
-						rf.mu.Unlock()
-					}(index, peer)
+						rf.sendAppendEntries(i, appendEntriesArgs, reply)
+						replies[i] = reply
+					}(i)
 				}
+			
 			}
+			DPrintf("Heartbeat Request (Waiting for all Peers): Raft %v, Term %v", rf.me, rf.currentTerm)
+			rf.mu.Unlock()
 			waitGroup.Wait()
-			rf.mu.RLock()
-			for _, reply := range replies {
-				if reply.Term > rf.currentTerm {
-					rf.isLeader = false
-					rf.currentTerm = reply.Term
-					break
-				} 
+			rf.mu.Lock()
+			if startedHeartbeatsTerm != rf.currentTerm {
+				DPrintf("Heartbeat Request (Invalid - Term changed): Raft %v, Term %v", rf.me, rf.currentTerm)
+			} else {
+				DPrintf("Heartbeat Request (All Peers Responded): Raft %v, Term %v", rf.me, rf.currentTerm)
+				for index, reply := range replies {
+					if index != rf.me && reply.Term > rf.currentTerm  {
+						rf.isLeader = false
+						rf.currentTerm = reply.Term
+						rf.votedFor = -1
+						DPrintf("Heartbeat Request (New Leader): Raft %v, Term %v, Other Raft: %v", rf.me, rf.currentTerm, index)
+						break
+					} 
+				}	
 			}
-			rf.mu.RUnlock()
-			time.Sleep(120 * time.Millisecond)
 		}
+		rf.mu.Unlock()
+		time.Sleep(100 * time.Millisecond)
 	}	
 }
 
 func (rf *Raft) elections() {
 	for rf.killed() == false {
-		rf.mu.Lock()
-		rand.Seed(time.Now().UnixNano())
-		electionTimeoutDuration := time.Duration(301 + rand.Intn(100)) * time.Millisecond
+		rand.Seed(raftSeed())
+		electionTimeoutDuration := time.Duration(350 + (rand.Int63() % 100)) * time.Millisecond
 		now := time.Now()
-		lastReceivedCommunication := rf.lastReceivedCommunication
-		if now.Sub(lastReceivedCommunication) > electionTimeoutDuration {
-			lastReceivedCommunication = time.Now()
-			rf.currentTerm++
+		rf.mu.Lock()
+		if now.Sub(rf.lastReceivedCommunication) > electionTimeoutDuration && rf.isLeader == false {
+			DPrintf("Election (Timeout): Raft %v, PriorTerm %v, Timeout(ms) %v", rf.me, rf.currentTerm, electionTimeoutDuration)
 			rf.mu.Unlock()
-			go rf.startElection()
-		} else {
+			rf.startElection()
+		}else {
 			rf.mu.Unlock()
 		}
 		time.Sleep(electionTimeoutDuration)
@@ -358,50 +394,57 @@ func (rf *Raft) elections() {
 }
 
 func (rf *Raft) startElection(){
-	rf.mu.RLock()
-	requestVoteArgs := &RequestVoteArgs{Term: rf.currentTerm, CandidateId: rf.me}
-	rf.mu.RUnlock()
-	replies := []*RequestVoteReply{}
-	var waitGroup sync.WaitGroup
-	for index, peer := range rf.peers {
-		if index != rf.me {
-			waitGroup.Add(1)
-			go func(index int, peer *labrpc.ClientEnd){
-				defer waitGroup.Done()
-				DPrintf("Raft %v requesting vote from Raft %v", rf.me, index)
-				reply := &RequestVoteReply{}
-				rf.sendRequestVote(index, requestVoteArgs, reply)
-				rf.mu.Lock()
-				replies = append(replies, reply)
-				rf.mu.Unlock()
-			}(index, peer)
-		}
-	}
-	waitGroup.Wait()
-	votes := 1
-	rf.mu.RLock()
-	maxTerm := rf.currentTerm
-	rf.mu.RUnlock()
-	for _, reply := range replies {
-		if reply.VoteGranted == true {
-			votes++
-		} 
-		if reply.Term > maxTerm {
-			maxTerm = reply.Term
-		}
-	}
-
-	majority:= len(rf.peers) % 2
 	rf.mu.Lock()
-	if votes > majority{
-		rf.isLeader = true
-		DPrintf("Leader elected: %v, votes: %v, majority: %v ", rf.me, votes, majority)
-	} else {
-		rf.isLeader = false
-		rf.currentTerm = maxTerm
-		DPrintf("Leader rejected: %v, votes: %v, majority: %v ", rf.me, votes, majority)
-	}
+	rf.lastReceivedCommunication = time.Now()
+	rf.currentTerm++
+	rf.votedFor = rf.me
+	termAtElectionStart := rf.currentTerm
+	DPrintf("Election (Starting): Raft %v, Term %v", rf.me, rf.currentTerm)	
+	requestVoteArgs := &RequestVoteArgs{Term: rf.currentTerm, CandidateId: rf.me}
+	peersLength := len(rf.peers)
+	majority:= (peersLength / 2) + 1
+	cond := sync.NewCond(&rf.mu)
+	votesGranted := 1
+	votesTaken := 1
 	rf.mu.Unlock()
+	for i:=0; i < peersLength && rf.killed() == false; i++{
+		if i != rf.me {
+			go func(i int){
+				reply := &RequestVoteReply{}
+				rf.sendRequestVote(i, requestVoteArgs, reply)
+				cond.L.Lock()
+				if reply.Term > rf.currentTerm {
+					DPrintf("Election (Failure): Raft %v, Old Term %v, New Term %v", rf.me, rf.currentTerm, reply.Term)
+					rf.isLeader = false
+					rf.currentTerm = reply.Term
+					rf.votedFor = -1
+					cond.Broadcast()
+				} else if termAtElectionStart != rf.currentTerm || rf.votedFor != rf.me {
+					DPrintf("Election (Invalid - Term/Vote changed): Raft %v, Term %v, Election Start Term %v, voted for %v", rf.me, rf.currentTerm, termAtElectionStart, rf.votedFor)
+					rf.votedFor = -1
+					cond.Broadcast()
+				} else {
+					votesTaken++
+					if reply.VoteGranted == true {
+						votesGranted++
+						if votesGranted >= majority {
+							DPrintf("Election (Success): Raft %v, Term %v, Majority %v, Votes Granted %v, Votes Taken %v", rf.me, rf.currentTerm, majority, votesGranted, votesTaken)
+							rf.isLeader = true
+							cond.Broadcast()
+						}
+					} else if peersLength == votesTaken{
+						DPrintf("Election (Finished/Failed): Raft %v, Term %v, Majority %v, Votes Granted %v, Votes Taken %v", rf.me, rf.currentTerm, majority, votesGranted, votesTaken)
+						cond.Broadcast()
+					}
+					
+				}
+				cond.L.Unlock()
+			}(i)
+		}
+	}
+	cond.L.Lock()
+	cond.Wait()
+	cond.L.Unlock()
 }
 
 //
@@ -433,4 +476,11 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	go rf.heartbeats()
 
 	return rf
+}
+
+func raftSeed() int64 {
+	max := big.NewInt(int64(1) << 62)
+	bigx, _ := crand.Int(crand.Reader, max)
+	x := bigx.Int64()
+	return x
 }

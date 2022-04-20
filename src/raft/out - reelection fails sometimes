@@ -1,0 +1,448 @@
+Test (2A): initial election ...
+2022/04/20 17:34:52 Election (Timeout): Raft 2, PriorTerm 0, Timeout(ms) 350ms
+2022/04/20 17:34:52 Election (Starting): Raft 2, Term 1
+2022/04/20 17:34:52 Election (Timeout): Raft 1, PriorTerm 0, Timeout(ms) 381ms
+2022/04/20 17:34:52 Election (Starting): Raft 1, Term 1
+2022/04/20 17:34:52 Vote Request (Received): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:52 Vote Request (Rejected - I am already the leader for this term): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:52 Vote Request (Received): Raft 0, Term 0, Other Raft: 2
+2022/04/20 17:34:52 Vote Request (Granted - New Term): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:52 Vote Request (Received): Raft 2, Term 1, Other Raft: 1
+2022/04/20 17:34:52 Vote Request (Received): Raft 0, Term 1, Other Raft: 1
+2022/04/20 17:34:52 Vote Request (Rejected - I am already the leader for this term): Raft 2, Term 1, Other Raft: 1
+2022/04/20 17:34:52 Vote Request (Rejected - Leader already elected): Raft 0, Term 1, Other Raft: 1
+2022/04/20 17:34:52 Election (Success): Raft 2, Term 1, Majority 2, Votes Granted 2, Votes Taken 3
+2022/04/20 17:34:52 Election (Finished/Failed): Raft 1, Term 1, Majority 2, Votes Granted 1, Votes Taken 3
+2022/04/20 17:34:52 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:52 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:52 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:52 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:52 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:52 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:52 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:52 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:52 term 1 leader true
+2022/04/20 17:34:52 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:52 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:52 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:52 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:52 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:52 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:52 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:52 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:52 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:52 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:52 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:52 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:53 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:53 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:53 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:53 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:53 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:53 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:53 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:53 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:53 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:53 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:53 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:53 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:53 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:53 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:53 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:53 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:53 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:53 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:53 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:53 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:53 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:53 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:53 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:53 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:53 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:53 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:53 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:53 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:53 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:53 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:53 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:53 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:53 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:53 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:53 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:53 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:53 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:53 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:53 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:53 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:54 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:54 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:54 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:54 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:54 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:54 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:54 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:54 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:54 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:54 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:54 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:54 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:54 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:54 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:54 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:54 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:54 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:54 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:54 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:54 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:54 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:54 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:54 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:54 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:54 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:54 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:54 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:54 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:54 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:54 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:54 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:54 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:54 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:54 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:54 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:54 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:54 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:54 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:54 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:54 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:55 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:55 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:55 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:55 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:55 Heartbeat Request (Waiting for all Peers): Raft 2, Term 1
+2022/04/20 17:34:55 Append Entries (Success): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:55 Append Entries (Success): Raft 1, Term 1, Other Raft: 2
+2022/04/20 17:34:55 Heartbeat Request (All Peers Responded): Raft 2, Term 1
+2022/04/20 17:34:55 term 1 leader true
+  ... Passed --   3.1  3   58    7198    0
+Test (2A): election after network failure ...
+2022/04/20 17:34:55 Election (Timeout): Raft 1, PriorTerm 0, Timeout(ms) 359ms
+2022/04/20 17:34:55 Election (Starting): Raft 1, Term 1
+2022/04/20 17:34:55 Vote Request (Received): Raft 0, Term 0, Other Raft: 1
+2022/04/20 17:34:55 Vote Request (Received): Raft 2, Term 0, Other Raft: 1
+2022/04/20 17:34:55 Vote Request (Granted - New Term): Raft 2, Term 1, Other Raft: 1
+2022/04/20 17:34:55 Vote Request (Granted - New Term): Raft 0, Term 1, Other Raft: 1
+2022/04/20 17:34:55 Election (Success): Raft 1, Term 1, Majority 2, Votes Granted 2, Votes Taken 2
+2022/04/20 17:34:55 Election (Success): Raft 1, Term 1, Majority 2, Votes Granted 3, Votes Taken 3
+2022/04/20 17:34:55 Heartbeat Request (Waiting for all Peers): Raft 1, Term 1
+2022/04/20 17:34:55 Append Entries (Success): Raft 0, Term 1, Other Raft: 1
+2022/04/20 17:34:55 Append Entries (Success): Raft 2, Term 1, Other Raft: 1
+2022/04/20 17:34:55 Heartbeat Request (All Peers Responded): Raft 1, Term 1
+2022/04/20 17:34:55 term 1 leader true
+2022/04/20 17:34:55 A
+2022/04/20 17:34:55 Heartbeat Request (Waiting for all Peers): Raft 1, Term 1
+2022/04/20 17:34:56 Election (Timeout): Raft 2, PriorTerm 1, Timeout(ms) 388ms
+2022/04/20 17:34:56 Election (Starting): Raft 2, Term 2
+2022/04/20 17:34:56 Vote Request (Received): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:56 Vote Request (Granted - New Term): Raft 0, Term 2, Other Raft: 2
+2022/04/20 17:34:56 Election (Success): Raft 2, Term 2, Majority 2, Votes Granted 2, Votes Taken 2
+2022/04/20 17:34:56 Heartbeat Request (Waiting for all Peers): Raft 2, Term 2
+2022/04/20 17:34:56 Append Entries (Success): Raft 0, Term 2, Other Raft: 2
+2022/04/20 17:34:56 term 2 leader true
+2022/04/20 17:34:56 B
+2022/04/20 17:34:56 C
+2022/04/20 17:34:56 Election (Finished/Failed): Raft 2, Term 2, Majority 2, Votes Granted 2, Votes Taken 3
+2022/04/20 17:34:56 term 1 leader true
+2022/04/20 17:34:56 term 2 leader true
+2022/04/20 17:34:56 D
+2022/04/20 17:34:56 E
+2022/04/20 17:34:56 F
+2022/04/20 17:34:56 Election (Timeout): Raft 0, PriorTerm 2, Timeout(ms) 368ms
+2022/04/20 17:34:56 Election (Starting): Raft 0, Term 3
+2022/04/20 17:34:58 G
+--- FAIL: TestReElection2A (3.56s)
+    config.go:490: expected no leader among connected servers, but 1 claims to be leader
+Test (2A): multiple elections ...
+2022/04/20 17:34:59 Heartbeat Request (All Peers Responded): Raft 2, Term 2
+2022/04/20 17:34:59 Election (Timeout): Raft 0, PriorTerm 0, Timeout(ms) 352ms
+2022/04/20 17:34:59 Election (Starting): Raft 0, Term 1
+2022/04/20 17:34:59 Vote Request (Received): Raft 1, Term 0, Other Raft: 0
+2022/04/20 17:34:59 Vote Request (Granted - New Term): Raft 1, Term 1, Other Raft: 0
+2022/04/20 17:34:59 Vote Request (Received): Raft 2, Term 0, Other Raft: 0
+2022/04/20 17:34:59 Vote Request (Granted - New Term): Raft 2, Term 1, Other Raft: 0
+2022/04/20 17:34:59 Vote Request (Received): Raft 3, Term 0, Other Raft: 0
+2022/04/20 17:34:59 Vote Request (Granted - New Term): Raft 3, Term 1, Other Raft: 0
+2022/04/20 17:34:59 Vote Request (Received): Raft 6, Term 0, Other Raft: 0
+2022/04/20 17:34:59 Vote Request (Granted - New Term): Raft 6, Term 1, Other Raft: 0
+2022/04/20 17:34:59 Vote Request (Received): Raft 4, Term 0, Other Raft: 0
+2022/04/20 17:34:59 Vote Request (Granted - New Term): Raft 4, Term 1, Other Raft: 0
+2022/04/20 17:34:59 Vote Request (Received): Raft 5, Term 0, Other Raft: 0
+2022/04/20 17:34:59 Election (Success): Raft 0, Term 1, Majority 4, Votes Granted 4, Votes Taken 4
+2022/04/20 17:34:59 Vote Request (Granted - New Term): Raft 5, Term 1, Other Raft: 0
+2022/04/20 17:34:59 Election (Success): Raft 0, Term 1, Majority 4, Votes Granted 5, Votes Taken 5
+2022/04/20 17:34:59 Election (Success): Raft 0, Term 1, Majority 4, Votes Granted 6, Votes Taken 6
+2022/04/20 17:34:59 Election (Success): Raft 0, Term 1, Majority 4, Votes Granted 7, Votes Taken 7
+2022/04/20 17:34:59 Heartbeat Request (Waiting for all Peers): Raft 0, Term 1
+2022/04/20 17:34:59 Append Entries (Success): Raft 3, Term 1, Other Raft: 0
+2022/04/20 17:34:59 Append Entries (Success): Raft 1, Term 1, Other Raft: 0
+2022/04/20 17:34:59 Append Entries (Success): Raft 5, Term 1, Other Raft: 0
+2022/04/20 17:34:59 Append Entries (Success): Raft 2, Term 1, Other Raft: 0
+2022/04/20 17:34:59 Append Entries (Success): Raft 6, Term 1, Other Raft: 0
+2022/04/20 17:34:59 Append Entries (Success): Raft 4, Term 1, Other Raft: 0
+2022/04/20 17:34:59 Heartbeat Request (All Peers Responded): Raft 0, Term 1
+2022/04/20 17:34:59 term 1 leader true
+2022/04/20 17:34:59 Heartbeat Request (Waiting for all Peers): Raft 0, Term 1
+2022/04/20 17:34:59 Append Entries (Success): Raft 1, Term 1, Other Raft: 0
+2022/04/20 17:34:59 Append Entries (Success): Raft 2, Term 1, Other Raft: 0
+2022/04/20 17:34:59 Append Entries (Success): Raft 3, Term 1, Other Raft: 0
+2022/04/20 17:34:59 Election (Timeout): Raft 5, PriorTerm 1, Timeout(ms) 357ms
+2022/04/20 17:34:59 Election (Starting): Raft 5, Term 2
+2022/04/20 17:34:59 Election (Timeout): Raft 6, PriorTerm 1, Timeout(ms) 396ms
+2022/04/20 17:34:59 Election (Starting): Raft 6, Term 2
+2022/04/20 17:34:59 term 1 leader true
+2022/04/20 17:34:59 Election (Timeout): Raft 2, PriorTerm 1, Timeout(ms) 425ms
+2022/04/20 17:34:59 Election (Starting): Raft 2, Term 2
+2022/04/20 17:34:59 Election (Timeout): Raft 3, PriorTerm 1, Timeout(ms) 383ms
+2022/04/20 17:34:59 Election (Starting): Raft 3, Term 2
+2022/04/20 17:34:59 Vote Request (Received): Raft 0, Term 1, Other Raft: 2
+2022/04/20 17:34:59 Vote Request (Granted - New Term): Raft 0, Term 2, Other Raft: 2
+2022/04/20 17:34:59 Vote Request (Received): Raft 3, Term 2, Other Raft: 2
+2022/04/20 17:34:59 Vote Request (Rejected - I am already the leader for this term): Raft 3, Term 2, Other Raft: 2
+2022/04/20 17:34:59 Vote Request (Received): Raft 5, Term 2, Other Raft: 2
+2022/04/20 17:34:59 Vote Request (Rejected - I am already the leader for this term): Raft 5, Term 2, Other Raft: 2
+2022/04/20 17:34:59 Vote Request (Received): Raft 0, Term 2, Other Raft: 3
+2022/04/20 17:34:59 Vote Request (Rejected - Leader already elected): Raft 0, Term 2, Other Raft: 3
+2022/04/20 17:34:59 Vote Request (Received): Raft 2, Term 2, Other Raft: 3
+2022/04/20 17:34:59 Vote Request (Rejected - I am already the leader for this term): Raft 2, Term 2, Other Raft: 3
+2022/04/20 17:34:59 Vote Request (Received): Raft 5, Term 2, Other Raft: 3
+2022/04/20 17:34:59 Vote Request (Rejected - I am already the leader for this term): Raft 5, Term 2, Other Raft: 3
+2022/04/20 17:34:59 Election (Timeout): Raft 4, PriorTerm 1, Timeout(ms) 397ms
+2022/04/20 17:34:59 Election (Starting): Raft 4, Term 2
+2022/04/20 17:34:59 Election (Timeout): Raft 1, PriorTerm 1, Timeout(ms) 419ms
+2022/04/20 17:34:59 Election (Starting): Raft 1, Term 2
+2022/04/20 17:35:00 Election (Timeout): Raft 0, PriorTerm 2, Timeout(ms) 368ms
+2022/04/20 17:35:00 Election (Starting): Raft 0, Term 3
+2022/04/20 17:35:00 Vote Request (Received): Raft 2, Term 2, Other Raft: 0
+2022/04/20 17:35:00 Vote Request (Granted - New Term): Raft 2, Term 3, Other Raft: 0
+2022/04/20 17:35:00 Vote Request (Received): Raft 3, Term 2, Other Raft: 0
+2022/04/20 17:35:00 Vote Request (Granted - New Term): Raft 3, Term 3, Other Raft: 0
+2022/04/20 17:35:00 Vote Request (Received): Raft 5, Term 2, Other Raft: 0
+2022/04/20 17:35:00 Vote Request (Granted - New Term): Raft 5, Term 3, Other Raft: 0
+2022/04/20 17:35:00 Election (Success): Raft 0, Term 3, Majority 4, Votes Granted 4, Votes Taken 4
+2022/04/20 17:35:00 term 3 leader true
+2022/04/20 17:35:01 Election (Finished/Failed): Raft 0, Term 3, Majority 2, Votes Granted 1, Votes Taken 3
+2022/04/20 17:35:01 Election (Invalid - Term/Vote changed): Raft 3, Term 3, Election Start Term 2, voted for 0
+2022/04/20 17:35:01 Heartbeat Request (All Peers Responded): Raft 1, Term 1
+2022/04/20 17:35:01 term 3 leader true
+2022/04/20 17:35:01 Election (Timeout): Raft 3, PriorTerm 3, Timeout(ms) 373ms
+2022/04/20 17:35:01 Election (Starting): Raft 3, Term 4
+2022/04/20 17:35:01 Vote Request (Received): Raft 0, Term 3, Other Raft: 3
+2022/04/20 17:35:01 Vote Request (Received): Raft 5, Term 3, Other Raft: 3
+2022/04/20 17:35:01 Vote Request (Received): Raft 6, Term 2, Other Raft: 3
+2022/04/20 17:35:01 Vote Request (Granted - New Term): Raft 6, Term 4, Other Raft: 3
+2022/04/20 17:35:01 Vote Request (Received): Raft 2, Term 3, Other Raft: 3
+2022/04/20 17:35:01 Vote Request (Granted - New Term): Raft 0, Term 4, Other Raft: 3
+2022/04/20 17:35:01 Vote Request (Granted - New Term): Raft 5, Term 4, Other Raft: 3
+2022/04/20 17:35:01 Vote Request (Granted - New Term): Raft 2, Term 4, Other Raft: 3
+2022/04/20 17:35:01 Election (Success): Raft 3, Term 4, Majority 4, Votes Granted 4, Votes Taken 4
+2022/04/20 17:35:01 Election (Success): Raft 3, Term 4, Majority 4, Votes Granted 5, Votes Taken 5
+2022/04/20 17:35:01 Heartbeat Request (Waiting for all Peers): Raft 3, Term 4
+2022/04/20 17:35:01 Append Entries (Success): Raft 0, Term 4, Other Raft: 3
+2022/04/20 17:35:01 Append Entries (Success): Raft 5, Term 4, Other Raft: 3
+2022/04/20 17:35:01 Append Entries (Success): Raft 6, Term 4, Other Raft: 3
+2022/04/20 17:35:01 Append Entries (Success): Raft 2, Term 4, Other Raft: 3
+2022/04/20 17:35:01 term 4 leader true
+2022/04/20 17:35:01 Election (Invalid - Term/Vote changed): Raft 6, Term 4, Election Start Term 2, voted for 3
+2022/04/20 17:35:01 Election (Invalid - Term/Vote changed): Raft 3, Term 4, Election Start Term 2, voted for 3
+2022/04/20 17:35:02 Election (Timeout): Raft 6, PriorTerm 4, Timeout(ms) 439ms
+2022/04/20 17:35:02 Election (Starting): Raft 6, Term 5
+2022/04/20 17:35:02 Vote Request (Received): Raft 0, Term 4, Other Raft: 6
+2022/04/20 17:35:02 Vote Request (Granted - New Term): Raft 0, Term 5, Other Raft: 6
+2022/04/20 17:35:02 Vote Request (Received): Raft 2, Term 4, Other Raft: 6
+2022/04/20 17:35:02 Vote Request (Received): Raft 3, Term 4, Other Raft: 6
+2022/04/20 17:35:02 Vote Request (Granted - New Term): Raft 3, Term 5, Other Raft: 6
+2022/04/20 17:35:02 Vote Request (Granted - New Term): Raft 2, Term 5, Other Raft: 6
+2022/04/20 17:35:02 Vote Request (Received): Raft 5, Term 4, Other Raft: 6
+2022/04/20 17:35:02 Vote Request (Granted - New Term): Raft 5, Term 5, Other Raft: 6
+2022/04/20 17:35:02 Election (Success): Raft 6, Term 5, Majority 4, Votes Granted 4, Votes Taken 4
+2022/04/20 17:35:02 Election (Success): Raft 6, Term 5, Majority 4, Votes Granted 5, Votes Taken 5
+2022/04/20 17:35:02 Election (Invalid - Term/Vote changed): Raft 6, Term 5, Election Start Term 2, voted for 6
+2022/04/20 17:35:02 Election (Invalid - Term/Vote changed): Raft 2, Term 5, Election Start Term 2, voted for 6
+2022/04/20 17:35:02 Heartbeat Request (Waiting for all Peers): Raft 6, Term 5
+2022/04/20 17:35:02 Append Entries (Success): Raft 0, Term 5, Other Raft: 6
+2022/04/20 17:35:02 Append Entries (Success): Raft 3, Term 5, Other Raft: 6
+2022/04/20 17:35:02 Append Entries (Success): Raft 5, Term 5, Other Raft: 6
+2022/04/20 17:35:02 Append Entries (Success): Raft 2, Term 5, Other Raft: 6
+2022/04/20 17:35:02 term 5 leader true
+2022/04/20 17:35:02 Election (Timeout): Raft 2, PriorTerm 5, Timeout(ms) 359ms
+2022/04/20 17:35:02 Election (Starting): Raft 2, Term 6
+2022/04/20 17:35:02 Election (Invalid - Term/Vote changed): Raft 2, Term 6, Election Start Term 2, voted for 2
+2022/04/20 17:35:02 Election (Timeout): Raft 0, PriorTerm 5, Timeout(ms) 443ms
+2022/04/20 17:35:02 Election (Starting): Raft 0, Term 6
+2022/04/20 17:35:02 Vote Request (Received): Raft 1, Term 2, Other Raft: 0
+2022/04/20 17:35:02 Vote Request (Received): Raft 3, Term 5, Other Raft: 0
+2022/04/20 17:35:02 Vote Request (Granted - New Term): Raft 3, Term 6, Other Raft: 0
+2022/04/20 17:35:02 Vote Request (Granted - New Term): Raft 1, Term 6, Other Raft: 0
+2022/04/20 17:35:02 Vote Request (Received): Raft 5, Term 5, Other Raft: 0
+2022/04/20 17:35:02 Vote Request (Granted - New Term): Raft 5, Term 6, Other Raft: 0
+2022/04/20 17:35:02 Election (Success): Raft 0, Term 6, Majority 4, Votes Granted 4, Votes Taken 4
+2022/04/20 17:35:02 Election (Invalid - Term/Vote changed): Raft 1, Term 6, Election Start Term 2, voted for 0
+2022/04/20 17:35:03 Election (Invalid - Term/Vote changed): Raft 3, Term 6, Election Start Term 4, voted for 0
+2022/04/20 17:35:03 Election (Invalid - Term/Vote changed): Raft 3, Term 6, Election Start Term 4, voted for -1
+2022/04/20 17:35:03 Election (Timeout): Raft 1, PriorTerm 6, Timeout(ms) 396ms
+2022/04/20 17:35:03 Election (Starting): Raft 1, Term 7
+2022/04/20 17:35:03 Vote Request (Received): Raft 0, Term 6, Other Raft: 1
+2022/04/20 17:35:03 Vote Request (Granted - New Term): Raft 0, Term 7, Other Raft: 1
+2022/04/20 17:35:03 Vote Request (Received): Raft 3, Term 6, Other Raft: 1
+2022/04/20 17:35:03 Vote Request (Granted - New Term): Raft 3, Term 7, Other Raft: 1
+2022/04/20 17:35:03 Vote Request (Received): Raft 5, Term 6, Other Raft: 1
+2022/04/20 17:35:03 Vote Request (Granted - New Term): Raft 5, Term 7, Other Raft: 1
+2022/04/20 17:35:03 Election (Success): Raft 1, Term 7, Majority 4, Votes Granted 4, Votes Taken 4
+2022/04/20 17:35:03 Heartbeat Request (Waiting for all Peers): Raft 1, Term 7
+2022/04/20 17:35:03 Append Entries (Success): Raft 0, Term 7, Other Raft: 1
+2022/04/20 17:35:03 Append Entries (Success): Raft 3, Term 7, Other Raft: 1
+2022/04/20 17:35:03 Append Entries (Success): Raft 5, Term 7, Other Raft: 1
+2022/04/20 17:35:03 term 7 leader true
+2022/04/20 17:35:03 Election (Invalid - Term/Vote changed): Raft 0, Term 7, Election Start Term 6, voted for 1
+2022/04/20 17:35:03 Election (Invalid - Term/Vote changed): Raft 0, Term 7, Election Start Term 3, voted for -1
+2022/04/20 17:35:03 Heartbeat Request (All Peers Responded): Raft 6, Term 5
+2022/04/20 17:35:03 Heartbeat Request (Invalid - Term changed): Raft 0, Term 7
+2022/04/20 17:35:03 Heartbeat Request (Waiting for all Peers): Raft 6, Term 5
+2022/04/20 17:35:03 Append Entries (Failure): Raft 0, Term 7, Other Raft: 6
+2022/04/20 17:35:03 Append Entries (Success): Raft 4, Term 2, Other Raft: 6
+2022/04/20 17:35:03 Append Entries (Failure): Raft 5, Term 7, Other Raft: 6
+2022/04/20 17:35:03 Append Entries (Failure): Raft 2, Term 6, Other Raft: 6
+2022/04/20 17:35:03 Election (Invalid - Term/Vote changed): Raft 5, Term 7, Election Start Term 2, voted for 1
+2022/04/20 17:35:03 Election (Timeout): Raft 3, PriorTerm 7, Timeout(ms) 427ms
+2022/04/20 17:35:03 Election (Starting): Raft 3, Term 8
+2022/04/20 17:35:03 term 5 leader true
+2022/04/20 17:35:03 Election (Invalid - Term/Vote changed): Raft 4, Term 5, Election Start Term 2, voted for 4
+2022/04/20 17:35:03 Election (Timeout): Raft 0, PriorTerm 7, Timeout(ms) 356ms
+2022/04/20 17:35:03 Election (Starting): Raft 0, Term 8
+2022/04/20 17:35:03 Election (Invalid - Term/Vote changed): Raft 5, Term 7, Election Start Term 2, voted for -1
+2022/04/20 17:35:04 Election (Timeout): Raft 5, PriorTerm 7, Timeout(ms) 373ms
+2022/04/20 17:35:04 Election (Starting): Raft 5, Term 8
+2022/04/20 17:35:04 Vote Request (Received): Raft 1, Term 7, Other Raft: 5
+2022/04/20 17:35:04 Vote Request (Granted - New Term): Raft 1, Term 8, Other Raft: 5
+2022/04/20 17:35:04 Vote Request (Received): Raft 4, Term 5, Other Raft: 5
+2022/04/20 17:35:04 Vote Request (Granted - New Term): Raft 4, Term 8, Other Raft: 5
+2022/04/20 17:35:04 Vote Request (Received): Raft 6, Term 5, Other Raft: 5
+2022/04/20 17:35:04 Vote Request (Granted - New Term): Raft 6, Term 8, Other Raft: 5
+2022/04/20 17:35:04 Election (Success): Raft 5, Term 8, Majority 4, Votes Granted 4, Votes Taken 4
+2022/04/20 17:35:04 Election (Invalid - Term/Vote changed): Raft 1, Term 8, Election Start Term 2, voted for 5
+2022/04/20 17:35:04 Heartbeat Request (Waiting for all Peers): Raft 5, Term 8
+2022/04/20 17:35:04 Append Entries (Success): Raft 1, Term 8, Other Raft: 5
+2022/04/20 17:35:04 Append Entries (Success): Raft 4, Term 8, Other Raft: 5
+2022/04/20 17:35:04 Append Entries (Success): Raft 6, Term 8, Other Raft: 5
+2022/04/20 17:35:04 Election (Invalid - Term/Vote changed): Raft 3, Term 8, Election Start Term 2, voted for 3
+2022/04/20 17:35:04 Election (Invalid - Term/Vote changed): Raft 1, Term 8, Election Start Term 7, voted for -1
+2022/04/20 17:35:04 Election (Invalid - Term/Vote changed): Raft 5, Term 8, Election Start Term 2, voted for 5
+2022/04/20 17:35:04 Election (Invalid - Term/Vote changed): Raft 5, Term 8, Election Start Term 8, voted for -1
+2022/04/20 17:35:04 term 8 leader true
+2022/04/20 17:35:04 Election (Invalid - Term/Vote changed): Raft 6, Term 8, Election Start Term 2, voted for 5
+2022/04/20 17:35:04 Election (Invalid - Term/Vote changed): Raft 2, Term 6, Election Start Term 6, voted for -1
+2022/04/20 17:35:04 Election (Invalid - Term/Vote changed): Raft 6, Term 8, Election Start Term 5, voted for -1
+2022/04/20 17:35:04 Election (Timeout): Raft 6, PriorTerm 8, Timeout(ms) 441ms
+2022/04/20 17:35:04 Election (Starting): Raft 6, Term 9
+2022/04/20 17:35:04 Vote Request (Received): Raft 2, Term 6, Other Raft: 6
+2022/04/20 17:35:04 Vote Request (Granted - New Term): Raft 2, Term 9, Other Raft: 6
+2022/04/20 17:35:04 Vote Request (Received): Raft 3, Term 8, Other Raft: 6
+2022/04/20 17:35:04 Vote Request (Received): Raft 5, Term 8, Other Raft: 6
+2022/04/20 17:35:04 Vote Request (Received): Raft 4, Term 8, Other Raft: 6
+2022/04/20 17:35:04 Vote Request (Granted - New Term): Raft 4, Term 9, Other Raft: 6
+2022/04/20 17:35:04 Vote Request (Granted - New Term): Raft 3, Term 9, Other Raft: 6
+2022/04/20 17:35:04 Vote Request (Granted - New Term): Raft 5, Term 9, Other Raft: 6
+2022/04/20 17:35:04 Election (Success): Raft 6, Term 9, Majority 4, Votes Granted 4, Votes Taken 4
+2022/04/20 17:35:04 Election (Success): Raft 6, Term 9, Majority 4, Votes Granted 5, Votes Taken 5
+2022/04/20 17:35:04 Election (Invalid - Term/Vote changed): Raft 0, Term 8, Election Start Term 3, voted for 0
+2022/04/20 17:35:04 Election (Timeout): Raft 1, PriorTerm 8, Timeout(ms) 385ms
+2022/04/20 17:35:04 Election (Starting): Raft 1, Term 9
+2022/04/20 17:35:04 term 9 leader true
+2022/04/20 17:35:04 Election (Invalid - Term/Vote changed): Raft 6, Term 9, Election Start Term 2, voted for 6
+2022/04/20 17:35:04 Election (Invalid - Term/Vote changed): Raft 5, Term 9, Election Start Term 2, voted for 6
+2022/04/20 17:35:04 Election (Invalid - Term/Vote changed): Raft 6, Term 9, Election Start Term 9, voted for -1
+2022/04/20 17:35:05 Election (Invalid - Term/Vote changed): Raft 3, Term 9, Election Start Term 8, voted for 6
+2022/04/20 17:35:05 Election (Invalid - Term/Vote changed): Raft 5, Term 9, Election Start Term 2, voted for -1
+2022/04/20 17:35:05 Election (Timeout): Raft 4, PriorTerm 9, Timeout(ms) 416ms
+2022/04/20 17:35:05 Election (Starting): Raft 4, Term 10
+2022/04/20 17:35:05 Election (Invalid - Term/Vote changed): Raft 4, Term 10, Election Start Term 2, voted for 4
+2022/04/20 17:35:05 Vote Request (Received): Raft 2, Term 9, Other Raft: 4
+2022/04/20 17:35:05 Vote Request (Granted - New Term): Raft 2, Term 10, Other Raft: 4
+2022/04/20 17:35:05 Vote Request (Received): Raft 6, Term 9, Other Raft: 4
+2022/04/20 17:35:05 Vote Request (Granted - New Term): Raft 6, Term 10, Other Raft: 4
+2022/04/20 17:35:05 Vote Request (Received): Raft 5, Term 9, Other Raft: 4
+2022/04/20 17:35:05 Vote Request (Granted - New Term): Raft 5, Term 10, Other Raft: 4
+2022/04/20 17:35:05 Vote Request (Received): Raft 3, Term 9, Other Raft: 4
+2022/04/20 17:35:05 Vote Request (Received): Raft 1, Term 9, Other Raft: 4
+2022/04/20 17:35:05 Vote Request (Granted - New Term): Raft 1, Term 10, Other Raft: 4
+2022/04/20 17:35:05 Election (Invalid - Term/Vote changed): Raft 4, Term 10, Election Start Term 10, voted for -1
+2022/04/20 17:35:05 Vote Request (Received): Raft 0, Term 8, Other Raft: 4
+2022/04/20 17:35:05 Vote Request (Granted - New Term): Raft 0, Term 10, Other Raft: 4
+2022/04/20 17:35:05 Election (Invalid - Term/Vote changed): Raft 4, Term 10, Election Start Term 10, voted for -1
+2022/04/20 17:35:05 Vote Request (Granted - New Term): Raft 3, Term 10, Other Raft: 4
+2022/04/20 17:35:05 Election (Invalid - Term/Vote changed): Raft 4, Term 10, Election Start Term 10, voted for -1
+2022/04/20 17:35:05 Election (Invalid - Term/Vote changed): Raft 4, Term 10, Election Start Term 10, voted for -1
+2022/04/20 17:35:05 Election (Invalid - Term/Vote changed): Raft 4, Term 10, Election Start Term 10, voted for -1
+2022/04/20 17:35:05 Election (Invalid - Term/Vote changed): Raft 4, Term 10, Election Start Term 10, voted for -1
+2022/04/20 17:35:05 Election (Invalid - Term/Vote changed): Raft 0, Term 10, Election Start Term 8, voted for 4
+2022/04/20 17:35:05 Election (Invalid - Term/Vote changed): Raft 3, Term 10, Election Start Term 8, voted for 4
+2022/04/20 17:35:05 Election (Invalid - Term/Vote changed): Raft 0, Term 10, Election Start Term 8, voted for -1
+2022/04/20 17:35:05 Election (Timeout): Raft 0, PriorTerm 10, Timeout(ms) 355ms
+2022/04/20 17:35:05 Election (Starting): Raft 0, Term 11
+2022/04/20 17:35:05 Vote Request (Received): Raft 1, Term 10, Other Raft: 0
+2022/04/20 17:35:05 Vote Request (Received): Raft 2, Term 10, Other Raft: 0
+2022/04/20 17:35:05 Vote Request (Received): Raft 3, Term 10, Other Raft: 0
+2022/04/20 17:35:05 Vote Request (Granted - New Term): Raft 3, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Vote Request (Received): Raft 4, Term 10, Other Raft: 0
+2022/04/20 17:35:05 Vote Request (Granted - New Term): Raft 2, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Vote Request (Received): Raft 6, Term 10, Other Raft: 0
+2022/04/20 17:35:05 Vote Request (Granted - New Term): Raft 6, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Vote Request (Received): Raft 5, Term 10, Other Raft: 0
+2022/04/20 17:35:05 Vote Request (Granted - New Term): Raft 5, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Vote Request (Granted - New Term): Raft 1, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Vote Request (Granted - New Term): Raft 4, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Election (Success): Raft 0, Term 11, Majority 4, Votes Granted 4, Votes Taken 4
+2022/04/20 17:35:05 Election (Success): Raft 0, Term 11, Majority 4, Votes Granted 5, Votes Taken 5
+2022/04/20 17:35:05 Election (Success): Raft 0, Term 11, Majority 4, Votes Granted 6, Votes Taken 6
+2022/04/20 17:35:05 Election (Success): Raft 0, Term 11, Majority 4, Votes Granted 7, Votes Taken 7
+2022/04/20 17:35:05 Heartbeat Request (Waiting for all Peers): Raft 0, Term 11
+2022/04/20 17:35:05 Append Entries (Success): Raft 2, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Append Entries (Success): Raft 3, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Append Entries (Success): Raft 1, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Append Entries (Success): Raft 5, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Append Entries (Success): Raft 4, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Append Entries (Success): Raft 6, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Heartbeat Request (All Peers Responded): Raft 0, Term 11
+2022/04/20 17:35:05 Election (Invalid - Term/Vote changed): Raft 5, Term 11, Election Start Term 2, voted for 0
+2022/04/20 17:35:05 Heartbeat Request (Waiting for all Peers): Raft 0, Term 11
+2022/04/20 17:35:05 Append Entries (Success): Raft 1, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Append Entries (Success): Raft 3, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Append Entries (Success): Raft 6, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Append Entries (Success): Raft 5, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Append Entries (Success): Raft 4, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Append Entries (Success): Raft 2, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Heartbeat Request (All Peers Responded): Raft 0, Term 11
+2022/04/20 17:35:05 Election (Invalid - Term/Vote changed): Raft 0, Term 11, Election Start Term 8, voted for 0
+2022/04/20 17:35:05 Heartbeat Request (Waiting for all Peers): Raft 0, Term 11
+2022/04/20 17:35:05 Append Entries (Success): Raft 1, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Append Entries (Success): Raft 2, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Append Entries (Success): Raft 5, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Append Entries (Success): Raft 3, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Append Entries (Success): Raft 4, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Append Entries (Success): Raft 6, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Heartbeat Request (All Peers Responded): Raft 0, Term 11
+2022/04/20 17:35:05 Election (Invalid - Term/Vote changed): Raft 2, Term 11, Election Start Term 6, voted for 0
+2022/04/20 17:35:05 Election (Invalid - Term/Vote changed): Raft 0, Term 11, Election Start Term 6, voted for -1
+2022/04/20 17:35:05 Election (Invalid - Term/Vote changed): Raft 3, Term 11, Election Start Term 8, voted for 0
+2022/04/20 17:35:05 Heartbeat Request (Waiting for all Peers): Raft 0, Term 11
+2022/04/20 17:35:05 Append Entries (Success): Raft 1, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Append Entries (Success): Raft 2, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Append Entries (Success): Raft 5, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Append Entries (Success): Raft 6, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Append Entries (Success): Raft 4, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Append Entries (Success): Raft 3, Term 11, Other Raft: 0
+2022/04/20 17:35:05 Heartbeat Request (All Peers Responded): Raft 0, Term 11
+2022/04/20 17:35:05 term 11 leader true
+  ... Passed --   7.1  7  186   17738    0
+FAIL
+exit status 1
+FAIL	6.824/raft	13.888s
