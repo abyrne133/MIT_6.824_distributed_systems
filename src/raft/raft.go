@@ -337,41 +337,41 @@ func (rf *Raft) heartbeats(){
 		rf.mu.Lock()
 		if rf.isLeader == true {
 			startedHeartbeatsTerm := rf.currentTerm
-			var waitGroup sync.WaitGroup
-			replies := make([]*AppendEntriesReply, len(rf.peers))
 			appendEntriesArgs := &AppendEntriesArgs{Term: rf.currentTerm, LeaderId: rf.me}
-			for i:=0; i < len(rf.peers) && rf.killed() == false; i++{
+			peersLength := len(rf.peers)
+			peersReplied:= 0 
+			cond := sync.NewCond(&rf.mu)
+			rf.mu.Unlock()
+			for i:=0; i < peersLength && rf.killed() == false; i++{
 				if i != rf.me {
-					waitGroup.Add(1)
 					go func(i int){
-						defer waitGroup.Done()
 						reply := &AppendEntriesReply{}
 						rf.sendAppendEntries(i, appendEntriesArgs, reply)
-						replies[i] = reply
+						cond.L.Lock()
+						peersReplied++
+						if reply.Term > rf.currentTerm {
+							DPrintf("Heartbeat (Failure): Raft %v, Old Term %v, New Term %v", rf.me, rf.currentTerm, reply.Term)
+							rf.isLeader = false
+							rf.currentTerm = reply.Term
+							rf.votedFor = -1
+							cond.Broadcast()
+						} else if startedHeartbeatsTerm != rf.currentTerm {
+							DPrintf("Heartbeat (Invalid - Term changed): Raft %v, Term %v", rf.me, rf.currentTerm)
+							cond.Broadcast()
+						} else if peersReplied == peersLength - 1 {
+							DPrintf("Heartbeat (Finished): Raft %v, Term %v, peersReplied %v", rf.me, rf.currentTerm, peersReplied)
+							cond.Broadcast()
+						}
+						cond.L.Unlock()
 					}(i)
 				}
-			
 			}
-			DPrintf("Heartbeat Request (Waiting for all Peers): Raft %v, Term %v", rf.me, rf.currentTerm)
+			cond.L.Lock()
+			cond.Wait()
+			cond.L.Unlock()
+		} else {
 			rf.mu.Unlock()
-			waitGroup.Wait()
-			rf.mu.Lock()
-			if startedHeartbeatsTerm != rf.currentTerm {
-				DPrintf("Heartbeat Request (Invalid - Term changed): Raft %v, Term %v", rf.me, rf.currentTerm)
-			} else {
-				DPrintf("Heartbeat Request (All Peers Responded): Raft %v, Term %v", rf.me, rf.currentTerm)
-				for index, reply := range replies {
-					if index != rf.me && reply.Term > rf.currentTerm  {
-						rf.isLeader = false
-						rf.currentTerm = reply.Term
-						rf.votedFor = -1
-						DPrintf("Heartbeat Request (New Leader): Raft %v, Term %v, Other Raft: %v", rf.me, rf.currentTerm, index)
-						break
-					} 
-				}	
-			}
 		}
-		rf.mu.Unlock()
 		time.Sleep(100 * time.Millisecond)
 	}	
 }
