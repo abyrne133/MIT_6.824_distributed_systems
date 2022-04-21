@@ -334,46 +334,52 @@ func (rf *Raft) killed() bool {
 
 func (rf *Raft) heartbeats(){
 	for rf.killed() == false {
-		rf.mu.Lock()
-		if rf.isLeader == true {
-			startedHeartbeatsTerm := rf.currentTerm
-			appendEntriesArgs := &AppendEntriesArgs{Term: rf.currentTerm, LeaderId: rf.me}
-			peersLength := len(rf.peers)
-			peersReplied:= 0 
-			cond := sync.NewCond(&rf.mu)
-			rf.mu.Unlock()
-			for i:=0; i < peersLength && rf.killed() == false; i++{
-				if i != rf.me {
-					go func(i int){
-						reply := &AppendEntriesReply{}
-						rf.sendAppendEntries(i, appendEntriesArgs, reply)
-						cond.L.Lock()
-						peersReplied++
-						if reply.Term > rf.currentTerm {
-							DPrintf("Heartbeat (Failure): Raft %v, Old Term %v, New Term %v", rf.me, rf.currentTerm, reply.Term)
-							rf.isLeader = false
-							rf.currentTerm = reply.Term
-							rf.votedFor = -1
-							cond.Broadcast()
-						} else if startedHeartbeatsTerm != rf.currentTerm {
-							DPrintf("Heartbeat (Invalid - Term changed): Raft %v, Term %v", rf.me, rf.currentTerm)
-							cond.Broadcast()
-						} else if peersReplied == peersLength - 1 {
-							DPrintf("Heartbeat (Finished): Raft %v, Term %v, peersReplied %v", rf.me, rf.currentTerm, peersReplied)
-							cond.Broadcast()
-						}
-						cond.L.Unlock()
-					}(i)
-				}
-			}
-			cond.L.Lock()
-			cond.Wait()
-			cond.L.Unlock()
-		} else {
-			rf.mu.Unlock()
-		}
+		go rf.startHearbeat()
 		time.Sleep(100 * time.Millisecond)
-	}	
+	}
+	DPrintf("finished")
+}
+
+func (rf *Raft) startHearbeat(){
+	rf.mu.Lock()
+	if rf.isLeader == true {
+		startedHeartbeatsTerm := rf.currentTerm
+		appendEntriesArgs := &AppendEntriesArgs{Term: rf.currentTerm, LeaderId: rf.me}
+		peersLength := len(rf.peers)
+		peersReplied:= 0 
+		cond := sync.NewCond(&rf.mu)
+		rf.mu.Unlock()
+		for i:=0; i < peersLength && rf.killed() == false; i++{
+			if i != rf.me {
+				go func(i int){
+					reply := &AppendEntriesReply{}
+					rf.sendAppendEntries(i, appendEntriesArgs, reply)
+					cond.L.Lock()
+					peersReplied++
+					if reply.Term > rf.currentTerm {
+						DPrintf("Heartbeat (Failure): Raft %v, Old Term %v, New Term %v", rf.me, rf.currentTerm, reply.Term)
+						rf.isLeader = false
+						rf.currentTerm = reply.Term
+						rf.votedFor = -1
+						cond.Broadcast()
+					} else if startedHeartbeatsTerm != rf.currentTerm {
+						DPrintf("Heartbeat (Invalid - Term changed): Raft %v, Term %v", rf.me, rf.currentTerm)
+						cond.Broadcast()
+					} else if peersReplied == peersLength - 1 {
+						DPrintf("Heartbeat (Finished): Raft %v, Term %v, peersReplied %v", rf.me, rf.currentTerm, peersReplied)
+						cond.Broadcast()
+					}
+					cond.L.Unlock()
+				}(i)
+			}
+		}
+		cond.L.Lock()
+		cond.Wait()
+		cond.L.Unlock()
+	} else {
+		rf.mu.Unlock()
+	}
+	
 }
 
 func (rf *Raft) elections() {
@@ -384,11 +390,9 @@ func (rf *Raft) elections() {
 		rf.mu.Lock()
 		if now.Sub(rf.lastReceivedCommunication) > electionTimeoutDuration && rf.isLeader == false {
 			DPrintf("Election (Timeout): Raft %v, PriorTerm %v, Timeout(ms) %v", rf.me, rf.currentTerm, electionTimeoutDuration)
-			rf.mu.Unlock()
-			rf.startElection()
-		}else {
-			rf.mu.Unlock()
-		}
+			go rf.startElection()
+		}	
+		rf.mu.Unlock()
 		time.Sleep(electionTimeoutDuration)
 	}
 }
@@ -419,9 +423,8 @@ func (rf *Raft) startElection(){
 					rf.currentTerm = reply.Term
 					rf.votedFor = -1
 					cond.Broadcast()
-				} else if termAtElectionStart != rf.currentTerm || rf.votedFor != rf.me {
+				} else if termAtElectionStart != rf.currentTerm {
 					DPrintf("Election (Invalid - Term/Vote changed): Raft %v, Term %v, Election Start Term %v, voted for %v", rf.me, rf.currentTerm, termAtElectionStart, rf.votedFor)
-					rf.votedFor = -1
 					cond.Broadcast()
 				} else {
 					votesTaken++
