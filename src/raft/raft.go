@@ -178,14 +178,14 @@ type RequestVoteReply struct {
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	DPrintf("Vote Request (Received): Raft %v, Term %v, Other Raft: %v", rf.me, rf.currentTerm, args.CandidateId)
+	DPrintf(dVote, "S%d Received Vote, Term %v, Other Raft: %v", rf.me, rf.currentTerm, args.CandidateId)
 	if args.Term < rf.currentTerm {
-		DPrintf("Vote Request (Rejected): Raft %v, Term %v, Other Raft: %v", rf.me, rf.currentTerm, args.CandidateId)
+		DPrintf(dTimer, "S%d Rejected Vote, Term %v, Other Raft: %v", rf.me, rf.currentTerm, args.CandidateId)
 		reply.Term = rf.currentTerm
 		reply.VoteGranted = false
 		return
 	} else if args.Term == rf.currentTerm && rf.votedFor == -1 {
-		DPrintf("Vote Request (Granted): Raft %v, Term %v, Other Raft: %v", rf.me, rf.currentTerm, args.CandidateId)
+		DPrintf(dVote, "S%d Granted Vote, Term %v, Other Raft: %v", rf.me, rf.currentTerm, args.CandidateId)
 		rf.lastReceivedCommunication = time.Now()
 		rf.votedFor = args.CandidateId
 		rf.isLeader = false
@@ -194,12 +194,12 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		return
 	} else if args.Term == rf.currentTerm && rf.votedFor != -1 {
 		if rf.votedFor == rf.me {
-			DPrintf("Vote Request (Rejected - I am already the leader for this term): Raft %v, Term %v, Other Raft: %v", rf.me, rf.currentTerm, args.CandidateId)
+			DPrintf(dVote, "S%d Vote Rejected - I am already the leader for this term: %v, Other Raft: %v", rf.me, rf.currentTerm, args.CandidateId)
 			reply.Term = rf.currentTerm
 			reply.VoteGranted = false
 			return
 		} else if rf.votedFor == args.CandidateId {
-			DPrintf("Vote Request (Granted Again): Raft %v, Term %v, Other Raft: %v", rf.me, rf.currentTerm, args.CandidateId)
+			DPrintf(dVote, "S%d Vote Granted Again Term %v, Other Raft: %v", rf.me, rf.currentTerm, args.CandidateId)
 			rf.lastReceivedCommunication = time.Now()
 			rf.votedFor = args.CandidateId
 			rf.isLeader = false
@@ -207,13 +207,13 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 			reply.Term = rf.currentTerm
 			return
 		} else {
-			DPrintf("Vote Request (Rejected - Leader already elected): Raft %v, Term %v, Other Raft: %v", rf.me, rf.currentTerm, args.CandidateId)
+			DPrintf(dVote, "S%d (Rejected - Leader already elected) Term %v, Other Raft: %v", rf.me, rf.currentTerm, args.CandidateId)
 			reply.Term = rf.currentTerm
 			reply.VoteGranted = false
 			return
 		}
 	} else if args.Term > rf.currentTerm {
-		DPrintf("Vote Request (Granted - New Term): Raft %v, Term %v, Other Raft: %v", rf.me, args.Term, args.CandidateId)
+		DPrintf(dVote, "S%d (Granted - New Term), Term %v, Other Raft: %v", rf.me, args.Term, args.CandidateId)
 		rf.lastReceivedCommunication = time.Now()
 		rf.votedFor = args.CandidateId
 		rf.currentTerm = args.Term
@@ -229,12 +229,12 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	if args.Term < rf.currentTerm {
-		DPrintf("Append Entries (Failure): Raft %v, Term %v, Other Raft: %v", rf.me, rf.currentTerm, args.LeaderId)
+		DPrintf(dTimer, "S%d Append Entries (Failure): Term %v, Other Raft: %v", rf.me, rf.currentTerm, args.LeaderId)
 		reply.Term = rf.currentTerm
 		reply.Success = false
 		return 
 	} else {
-		DPrintf("Append Entries (Success): Raft %v, Term %v, Other Raft: %v", rf.me, rf.currentTerm, args.LeaderId)
+		DPrintf(dTimer, "S%d Append Entries (Success): Term %v, Other Raft: %v", rf.me, rf.currentTerm, args.LeaderId)
 		rf.lastReceivedCommunication = time.Now()
 		rf.isLeader = false
 		rf.currentTerm = args.Term
@@ -337,7 +337,6 @@ func (rf *Raft) heartbeats(){
 		go rf.startHearbeat()
 		time.Sleep(100 * time.Millisecond)
 	}
-	DPrintf("finished")
 }
 
 func (rf *Raft) startHearbeat(){
@@ -357,16 +356,16 @@ func (rf *Raft) startHearbeat(){
 					cond.L.Lock()
 					peersReplied++
 					if reply.Term > rf.currentTerm {
-						DPrintf("Heartbeat (Failure): Raft %v, Old Term %v, New Term %v", rf.me, rf.currentTerm, reply.Term)
+						DPrintf(dLeader, "S%d Heartbeat (Failure): Old Term %v, New Term %v", rf.me, rf.currentTerm, reply.Term)
 						rf.isLeader = false
 						rf.currentTerm = reply.Term
 						rf.votedFor = -1
 						cond.Broadcast()
 					} else if startedHeartbeatsTerm != rf.currentTerm {
-						DPrintf("Heartbeat (Invalid - Term changed): Raft %v, Term %v", rf.me, rf.currentTerm)
+						DPrintf(dLeader, "S%d Heartbeat (Invalid - Term changed): Term %v", rf.me, rf.currentTerm)
 						cond.Broadcast()
 					} else if peersReplied == peersLength - 1 {
-						DPrintf("Heartbeat (Finished): Raft %v, Term %v, peersReplied %v", rf.me, rf.currentTerm, peersReplied)
+						DPrintf(dLeader, "S%d Heartbeat (Finished): Term %v, peersReplied %v", rf.me, rf.currentTerm, peersReplied)
 						cond.Broadcast()
 					}
 					cond.L.Unlock()
@@ -389,7 +388,7 @@ func (rf *Raft) elections() {
 		now := time.Now()
 		rf.mu.Lock()
 		if now.Sub(rf.lastReceivedCommunication) > electionTimeoutDuration && rf.isLeader == false {
-			DPrintf("Election (Timeout): Raft %v, PriorTerm %v, Timeout(ms) %v", rf.me, rf.currentTerm, electionTimeoutDuration)
+			DPrintf(dTimer, "S%d Election (Timeout): PriorTerm %v, Timeout(ms) %v", rf.me, rf.currentTerm, electionTimeoutDuration)
 			go rf.startElection()
 		}	
 		rf.mu.Unlock()
@@ -403,7 +402,7 @@ func (rf *Raft) startElection(){
 	rf.currentTerm++
 	rf.votedFor = rf.me
 	termAtElectionStart := rf.currentTerm
-	DPrintf("Election (Starting): Raft %v, Term %v", rf.me, rf.currentTerm)	
+	DPrintf(dVote, "S%d Election (Starting): Term %v", rf.me, rf.currentTerm)	
 	requestVoteArgs := &RequestVoteArgs{Term: rf.currentTerm, CandidateId: rf.me}
 	peersLength := len(rf.peers)
 	majority:= (peersLength / 2) + 1
@@ -418,25 +417,25 @@ func (rf *Raft) startElection(){
 				rf.sendRequestVote(i, requestVoteArgs, reply)
 				cond.L.Lock()
 				if reply.Term > rf.currentTerm {
-					DPrintf("Election (Failure): Raft %v, Old Term %v, New Term %v", rf.me, rf.currentTerm, reply.Term)
+					DPrintf(dVote, "S%d Election (Failure): Old Term %v, New Term %v", rf.me, rf.currentTerm, reply.Term)
 					rf.isLeader = false
 					rf.currentTerm = reply.Term
 					rf.votedFor = -1
 					cond.Broadcast()
 				} else if termAtElectionStart != rf.currentTerm {
-					DPrintf("Election (Invalid - Term/Vote changed): Raft %v, Term %v, Election Start Term %v, voted for %v", rf.me, rf.currentTerm, termAtElectionStart, rf.votedFor)
+					DPrintf(dVote, "S%d Election (Invalid - Term/Vote changed): Term %v, Election Start Term %v, voted for %v", rf.me, rf.currentTerm, termAtElectionStart, rf.votedFor)
 					cond.Broadcast()
 				} else {
 					votesTaken++
 					if reply.VoteGranted == true {
 						votesGranted++
 						if votesGranted >= majority {
-							DPrintf("Election (Success): Raft %v, Term %v, Majority %v, Votes Granted %v, Votes Taken %v", rf.me, rf.currentTerm, majority, votesGranted, votesTaken)
+							DPrintf(dLeader, "S%d Election (Success): Term %v, Majority %v, Votes Granted %v, Votes Taken %v", rf.me, rf.currentTerm, majority, votesGranted, votesTaken)
 							rf.isLeader = true
 							cond.Broadcast()
 						}
 					} else if peersLength == votesTaken{
-						DPrintf("Election (Finished/Failed): Raft %v, Term %v, Majority %v, Votes Granted %v, Votes Taken %v", rf.me, rf.currentTerm, majority, votesGranted, votesTaken)
+						DPrintf(dVote, "S%d Election (Finished/Failed): Term %v, Majority %v, Votes Granted %v, Votes Taken %v", rf.me, rf.currentTerm, majority, votesGranted, votesTaken)
 						cond.Broadcast()
 					}
 					
