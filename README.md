@@ -28,3 +28,7 @@ When the workers and coordinator have finished, look at the output in mr-out-*. 
 
 5. Test 20 times
 ```$ bash test-mr-many.sh 20```
+
+## Lab 2 - Raft
+To run specific tests in parallel (p) a number (n) of times, and output failed logs to output (o) folder
+```$ ./dstest.script 2A  -p 4  -n 100 -o logs```
