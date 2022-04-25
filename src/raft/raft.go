@@ -432,6 +432,7 @@ func (rf *Raft) startElection(){
 						if votesGranted >= majority {
 							DPrintf(dLeader, "S%d Election (Success): Term %v, Majority %v, Votes Granted %v, Votes Taken %v", rf.me, rf.currentTerm, majority, votesGranted, votesTaken)
 							rf.isLeader = true
+							go rf.startHearbeat()
 							cond.Broadcast()
 						}
 					} else if peersLength == votesTaken{
