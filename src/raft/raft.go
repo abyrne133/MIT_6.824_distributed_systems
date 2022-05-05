@@ -262,6 +262,10 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	rf.currentTerm = args.Term
 	reply.Term = args.Term
 	if len(args.Entries) == 0 { // heartbeat from leader
+		if args.LeaderCommitIndex > rf.commitIndex {
+			rf.commitIndex = min(args.LeaderCommitIndex, len(rf.logs) - 1)
+			DPrintf(dLog, "S%v (Heartbeat) leader commit index %v last log index %v, commit index %v", rf.me, args.LeaderCommitIndex, len(rf.logs) - 1, rf.commitIndex)
+		}
 		reply.Success = true
 		return
 	} 
@@ -277,9 +281,13 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			newLogIndex := len(rf.logs)
 			rf.logs[newLogIndex] = args.Entries[i]
 		}
-		rf.commitIndex = min(args.LeaderCommitIndex, len(rf.logs) - 1)
+		
+		if args.LeaderCommitIndex > rf.commitIndex {
+			rf.commitIndex = min(args.LeaderCommitIndex, len(rf.logs) - 1)
+		}
 		reply.Success = true
 		reply.LengthLog = len(rf.logs)	
+		DPrintf(dLog, "S%v Leader commit index %v last log index %v, commit index %v", rf.me, args.LeaderCommitIndex, len(rf.logs) - 1, rf.commitIndex)
 		return
 	}
 	
@@ -397,9 +405,9 @@ func (rf *Raft) applyLogs(){
 
 func (rf *Raft) applyLog(){
 	rf.mu.Lock()
-	defer rf.mu.Unlock()
+	defer rf.mu.Unlock()	
 	if rf.commitIndex > rf.lastApplied {
-		for i := rf.lastApplied; i <= rf.commitIndex; i++ {
+		for i := rf.lastApplied + 1; i <= rf.commitIndex; i++ {
 			applyMsg := ApplyMsg{CommandValid: true, Command: rf.logs[i].Command, CommandIndex: i}
 			rf.applyCh <- applyMsg
 		}
@@ -418,7 +426,7 @@ func (rf *Raft) startHeartbeat(){
 	rf.mu.Lock()
 	if rf.isLeader == true {
 		startedHeartbeatsTerm := rf.currentTerm
-		appendEntriesArgs := &AppendEntriesArgs{Term: rf.currentTerm, LeaderId: rf.me}
+		appendEntriesArgs := &AppendEntriesArgs{Term: rf.currentTerm, LeaderId: rf.me, LeaderCommitIndex: rf.commitIndex}
 		peersLength := len(rf.peers)
 		peersReplied:= 0 
 		cond := sync.NewCond(&rf.mu)
@@ -463,9 +471,7 @@ func (rf *Raft) startAppendEntries(){
 			for i := 0; i < len(rf.peers); i++ {
 				if i != rf.me {
 					go rf.startAppendEntriesPerPeer(i)
-				} else {
-					//TODO Alan check last commited index based on majority? send to applyMsg channel?
-				}
+				} 
 			} 
 		}
 		rf.mu.Unlock()
@@ -485,10 +491,11 @@ func (rf *Raft) startAppendEntriesPerPeer(peerIndex int){
 		prevLogIndex:= nextPeerIndex - 1;
 		prevLogTerm := rf.logs[nextPeerIndex-1].Term
 		appendEntriesArgs := &AppendEntriesArgs{Term: rf.currentTerm, LeaderId: rf.me, Entries: entries, PrevLogIndex: prevLogIndex, PrevLogTerm: prevLogTerm, LeaderCommitIndex: rf.commitIndex }
+		rf.mu.Unlock()
 		reply := &AppendEntriesReply{}
 		peerReplied := rf.sendAppendEntries(peerIndex, appendEntriesArgs, reply)
 		if peerReplied == false {
-			return	
+			return
 		}
 		rf.mu.Lock()
 		//TODO considerations around term changes on leader since sending request?
@@ -500,11 +507,11 @@ func (rf *Raft) startAppendEntriesPerPeer(peerIndex int){
 		} else if nextPeerIndex != rf.nextIndexPerPeer[peerIndex] {
 			DPrintf(dLeader, "S%d Append Entries (Next Index Changed, Ignoring result): Index before: %v, Index after: %v", nextPeerIndex, rf.nextIndexPerPeer[peerIndex])
 		} else if reply.Success == true {
-			DPrintf(dLeader, "S%d Append Entries (Success): Last Log index %v", lastLogIndex)
+			DPrintf(dLeader, "S%d Append Entries (Success): Last Log index %v, Other raft %v", rf.me, lastLogIndex, peerIndex)
 			rf.nextIndexPerPeer[peerIndex] = lastLogIndex + 1
 			rf.matchIndexPerPeer[peerIndex] = lastLogIndex
 		} else {
-			DPrintf(dLeader, "S%d Append Entries (Failure): Last Log index %v", lastLogIndex)
+			DPrintf(dLeader, "S%d Append Entries (Failure): Last Log index %v, Other raft %v", rf.me, lastLogIndex, peerIndex)
 			if reply.LengthLog == 0 {
 				rf.nextIndexPerPeer[peerIndex] = 0
 				rf.matchIndexPerPeer[peerIndex] = -1
@@ -521,6 +528,36 @@ func (rf *Raft) startAppendEntriesPerPeer(peerIndex int){
 		rf.mu.Unlock()
 	} else {
 		rf.mu.Unlock()
+	}
+}
+
+func (rf *Raft) commitLogs(){
+	for rf.killed() == false {
+		go rf.commitLog()
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func (rf *Raft) commitLog(){
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	if rf.isLeader == false {
+		return
+	}
+	majority := (len(rf.peers) / 2) + 1
+	for i := rf.commitIndex + 1; i < len(rf.logs); i++ {	
+		committedPeersCount := 1
+		for j := 0; j < len(rf.matchIndexPerPeer); j++ {
+			if rf.matchIndexPerPeer[j] >= i {
+				committedPeersCount++
+			}
+		}
+		DPrintf(dLog, "S%v Index %v Commited Peers Count %v Majority %v", rf.me, i, committedPeersCount, majority )
+		if committedPeersCount >= majority {
+			rf.commitIndex = i
+		} else {
+			return 
+		}
 	}
 }
 
@@ -572,7 +609,7 @@ func (rf *Raft) startElection(){
 					votesTaken++
 					if reply.VoteGranted == true {
 						votesGranted++
-						if votesGranted >= majority {
+						if votesGranted >= majority && rf.isLeader == false {
 							DPrintf(dLeader, "S%d Election (Success): Term %v, Majority %v, Votes Granted %v, Votes Taken %v", rf.me, rf.currentTerm, majority, votesGranted, votesTaken)
 							rf.isLeader = true
 							for i:= 0; i < len(rf.peers); i++ {
@@ -581,6 +618,7 @@ func (rf *Raft) startElection(){
 							}
 							go rf.startHeartbeat()
 							go rf.startAppendEntries()
+							go rf.commitLogs()
 							cond.Broadcast()
 						}
 					} else if peersLength == votesTaken{
