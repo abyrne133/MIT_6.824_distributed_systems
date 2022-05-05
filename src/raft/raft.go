@@ -263,7 +263,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	reply.Term = args.Term
 	if len(args.Entries) == 0 { // heartbeat from leader
 		if args.LeaderCommitIndex > rf.commitIndex {
-			rf.commitIndex = min(args.LeaderCommitIndex, len(rf.logs) - 1)
+			rf.commitIndex = min(args.LeaderCommitIndex, len(rf.logs))
 			DPrintf(dLog, "S%v (Heartbeat) leader commit index %v last log index %v, commit index %v", rf.me, args.LeaderCommitIndex, len(rf.logs) - 1, rf.commitIndex)
 		}
 		reply.Success = true
@@ -272,18 +272,18 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	
 	// entries from leader with no previous log index conflict
 	_, isPrevLogIndexInLogs := rf.logs[args.PrevLogIndex] 
-	if args.PrevLogIndex == -1 || (isPrevLogIndexInLogs == true  && rf.logs[args.PrevLogIndex].Term == args.Term) {
-		lastLogIndex := len(rf.logs) - 1
+	if args.PrevLogIndex == 0 || (isPrevLogIndexInLogs == true  && rf.logs[args.PrevLogIndex].Term == args.Term) {
+		lastLogIndex := len(rf.logs)
 		for i := lastLogIndex; i > args.PrevLogIndex; i-- {
 			delete(rf.logs, i)
 		} 
 		for i := 0; i < len(args.Entries); i++ {
-			newLogIndex := len(rf.logs)
+			newLogIndex := len(rf.logs) + 1
 			rf.logs[newLogIndex] = args.Entries[i]
 		}
 		
 		if args.LeaderCommitIndex > rf.commitIndex {
-			rf.commitIndex = min(args.LeaderCommitIndex, len(rf.logs) - 1)
+			rf.commitIndex = min(args.LeaderCommitIndex, len(rf.logs))
 		}
 		reply.Success = true
 		reply.LengthLog = len(rf.logs)	
@@ -366,9 +366,9 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	if rf.isLeader == false {
-		return -1, -1, false
+		return 0, 0, false
 	} else {
-		newLogIndex := len(rf.logs)
+		newLogIndex := len(rf.logs) + 1
 		log := Log{Command: command, Term: rf.currentTerm, Index: newLogIndex}
 		rf.logs[newLogIndex] = log
 		return newLogIndex, rf.currentTerm, rf.isLeader
@@ -481,7 +481,7 @@ func (rf *Raft) startAppendEntries(){
 
 func (rf *Raft) startAppendEntriesPerPeer(peerIndex int){
 	rf.mu.Lock()
-	lastLogIndex := len(rf.logs) - 1
+	lastLogIndex := len(rf.logs)
 	nextPeerIndex := rf.nextIndexPerPeer[peerIndex]
 	if lastLogIndex >= nextPeerIndex {
 		entries:= []Log{}
@@ -508,13 +508,13 @@ func (rf *Raft) startAppendEntriesPerPeer(peerIndex int){
 			DPrintf(dLeader, "S%d Append Entries (Next Index Changed, Ignoring result): Index before: %v, Index after: %v", nextPeerIndex, rf.nextIndexPerPeer[peerIndex])
 		} else if reply.Success == true {
 			DPrintf(dLeader, "S%d Append Entries (Success): Last Log index %v, Other raft %v", rf.me, lastLogIndex, peerIndex)
-			rf.nextIndexPerPeer[peerIndex] = lastLogIndex + 1
+			rf.nextIndexPerPeer[peerIndex] = lastLogIndex + 1 //TODO check timing is OK here? Network might have taken a while, is lastLogIndex still legit?
 			rf.matchIndexPerPeer[peerIndex] = lastLogIndex
 		} else {
 			DPrintf(dLeader, "S%d Append Entries (Failure): Last Log index %v, Other raft %v", rf.me, lastLogIndex, peerIndex)
 			if reply.LengthLog == 0 {
-				rf.nextIndexPerPeer[peerIndex] = 0
-				rf.matchIndexPerPeer[peerIndex] = -1
+				rf.nextIndexPerPeer[peerIndex] = 1
+				rf.matchIndexPerPeer[peerIndex] = 0
 			} else {
 				if rf.logs[reply.FirstIndexForConflictingTerm].Term == reply.ConflictingTerm {
 					rf.nextIndexPerPeer[peerIndex] = reply.FirstIndexForConflictingTerm + 1
@@ -545,7 +545,7 @@ func (rf *Raft) commitLog(){
 		return
 	}
 	majority := (len(rf.peers) / 2) + 1
-	for i := rf.commitIndex + 1; i < len(rf.logs); i++ {	
+	for i := rf.commitIndex + 1; i <= len(rf.logs); i++ {	
 		committedPeersCount := 1
 		for j := 0; j < len(rf.matchIndexPerPeer); j++ {
 			if rf.matchIndexPerPeer[j] >= i {
@@ -613,8 +613,8 @@ func (rf *Raft) startElection(){
 							DPrintf(dLeader, "S%d Election (Success): Term %v, Majority %v, Votes Granted %v, Votes Taken %v", rf.me, rf.currentTerm, majority, votesGranted, votesTaken)
 							rf.isLeader = true
 							for i:= 0; i < len(rf.peers); i++ {
-								rf.nextIndexPerPeer[i] = len(rf.logs)
-								rf.matchIndexPerPeer[i] = -1
+								rf.nextIndexPerPeer[i] = len(rf.logs) + 1
+								rf.matchIndexPerPeer[i] = 0
 							}
 							go rf.startHeartbeat()
 							go rf.startAppendEntries()
@@ -656,8 +656,8 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.lastReceivedCommunication = time.Now()
 	rf.isLeader = false
 	rf.votedFor = -1
-	rf.commitIndex = -1
-	rf.lastApplied = -1
+	rf.commitIndex = 0
+	rf.lastApplied = 0
 	rf.logs = make(map[int]Log)
 	rf.nextIndexPerPeer = make([]int, len(rf.peers))
 	rf.matchIndexPerPeer = make([]int, len(rf.peers))
@@ -668,8 +668,8 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.readPersist(persister.ReadRaftState())
 	
 	for i:= 0; i < len(rf.peers); i++ {
-		rf.nextIndexPerPeer[i] = len(rf.logs)
-		rf.matchIndexPerPeer[i] = -1
+		rf.nextIndexPerPeer[i] = len(rf.logs) + 1
+		rf.matchIndexPerPeer[i] = 0
 	}
 
 	go rf.elections()
