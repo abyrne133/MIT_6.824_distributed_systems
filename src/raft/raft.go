@@ -259,66 +259,68 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	rf.isLeader = false
 	rf.currentTerm = args.Term
 	reply.Term = args.Term
-	// if len(args.Entries) == 0 { // heartbeat from leader
-	// 	if args.LeaderCommitIndex > rf.commitIndex {
-	// 		rf.commitIndex = min(args.LeaderCommitIndex, len(rf.logs))
-	// 		DPrintf(dLog, "S%v (Heartbeat) leader commit index %v last log index %v, commit index %v", rf.me, args.LeaderCommitIndex, len(rf.logs), rf.commitIndex)
-	// 	}
-	// 	reply.Success = true
-	// 	return
-	// } 
-	
-	DPrintf(dLog, "S%v commit index %v", rf.me, rf.commitIndex)
-	// entries from leader with no previous log index conflict
-	_, isPrevLogIndexInLogs := rf.logs[args.PrevLogIndex] 
-	if args.PrevLogIndex == 0 || (isPrevLogIndexInLogs == true  && rf.logs[args.PrevLogIndex].Term == args.Term) {
-		lastLogIndex := len(rf.logs)
-		DPrintf(dLog, "S%v last log index %v", rf.me, lastLogIndex)
-		for i := lastLogIndex; i > args.PrevLogIndex; i-- {
-			delete(rf.logs, i)
-		} 
-		for i := 0; i < len(args.Entries); i++ {
-			newLogIndex := len(rf.logs) + 1
-			rf.logs[newLogIndex] = args.Entries[i]
-			DPrintf(dLog, "S%v entry at index %v", rf.me, newLogIndex)
-		}
-		
-		if args.LeaderCommitIndex > rf.commitIndex {
-			DPrintf(dLog, "S%v leader commit index %v, commit index %v, length %v", rf.me, args.LeaderCommitIndex, rf.commitIndex, len(rf.logs))
-			rf.commitIndex = min(args.LeaderCommitIndex, len(rf.logs))
 
+	_, isPrevLogIndexInLogs := rf.logs[args.PrevLogIndex]
+	if args.PrevLogIndex != 0 && ((isPrevLogIndexInLogs == true  && rf.logs[args.PrevLogIndex].Term != args.PrevLogTerm) || isPrevLogIndexInLogs == false) {
+		DPrintf(dLog, "S%v Conflicting prev log index", rf.me)
+		reply.Success = false
+		reply.LengthLog = len(rf.logs)			
+		conflictingTerm := rf.logs[args.PrevLogIndex].Term 
+		firstIndexForConflictingTerm := args.PrevLogIndex
+		DPrintf(dLog, "S%v Conflicting term %v, last index for conflicting term %v", rf.me, conflictingTerm, firstIndexForConflictingTerm)
+		sameConflictingTerm := true
+		for sameConflictingTerm == true {
+			if firstIndexForConflictingTerm != 0 && rf.logs[firstIndexForConflictingTerm-1].Term == conflictingTerm {
+				firstIndexForConflictingTerm--
+			} else {
+				sameConflictingTerm = false
+			}
 		}
-		reply.Success = true
-		reply.LengthLog = len(rf.logs)	
-		DPrintf(dLog, "S%v Leader commit index %v last log index %v, commit index %v", rf.me, args.LeaderCommitIndex, len(rf.logs), rf.commitIndex)
+		reply.ConflictingTerm = conflictingTerm
+		reply.FirstIndexForConflictingTerm = firstIndexForConflictingTerm
+		DPrintf(dLog, "S%v Conflicting first index reply %v", rf.me, reply.FirstIndexForConflictingTerm)
 		return
 	}
 
-	DPrintf(dLog, "S%v Conflicting prev log index", rf.me)
-	// conflicting prev log index from leader
-	reply.Success = false
-	reply.LengthLog = len(rf.logs)			
-	if reply.LengthLog == 0 {
-		DPrintf(dLog, "S%v 0 length in log", rf.me)
-		return
-	}
-	
-	conflictingTerm := rf.logs[args.PrevLogIndex].Term 
-	firstIndexForConflictingTerm := args.PrevLogIndex
-	DPrintf(dLog, "S%v Conflicting term %v, last index for conflicting term %v", rf.me, conflictingTerm, firstIndexForConflictingTerm)
-	sameConflictingTerm := true
-	for sameConflictingTerm == true {
-		if rf.logs[firstIndexForConflictingTerm-1].Term == conflictingTerm {
-			firstIndexForConflictingTerm--
-		} else {
-			sameConflictingTerm = false
+	// if an existing entry conflicts with a new one (same index but different terms),
+	// delete the existing entry and all that follow it
+	for i := 0; i < len(args.Entries); i++ {
+		index := args.Entries[i].Index
+		term  := args.Entries[i].Term
+		if term != rf.logs[index].Term {
+			for j := index; j <= len(rf.logs); j++ {
+				delete(rf.logs, j)
+			}
+			break
 		}
 	}
-	reply.ConflictingTerm = conflictingTerm
-	reply.FirstIndexForConflictingTerm = firstIndexForConflictingTerm
-	DPrintf(dLog, "S%v Conflicting first index reply %v", rf.me, reply.FirstIndexForConflictingTerm)
-	reply.Success = false
+
+	// append any entries not already in the log
+	for i := 0; i < len(args.Entries); i++ {
+		index := args.Entries[i].Index
+		_, containsLog := rf.logs[index]
+		if containsLog == false {
+			rf.logs[index] = args.Entries[i]
+		}
+		DPrintf(dLog, "S%v entry at index %v", rf.me, index)
+	}
+	
+	if args.LeaderCommitIndex > rf.commitIndex {
+		DPrintf(dLog, "S%v leader commit index %v, commit index %v, length %v", rf.me, args.LeaderCommitIndex, rf.commitIndex, len(rf.logs))
+		indexOfLastNewEntry := args.LeaderCommitIndex
+		if len(args.Entries) > 0 {
+			indexOfLastNewEntry = args.Entries[len(args.Entries)-1].Index
+		}
+		rf.commitIndex = min(args.LeaderCommitIndex, indexOfLastNewEntry)
+	}
+
+	reply.Success = true
+	reply.LengthLog = len(rf.logs)	
+	DPrintf(dLog, "S%v Leader commit index %v last log index %v, commit index %v", rf.me, args.LeaderCommitIndex, len(rf.logs), rf.commitIndex)
 	return
+
+
+	
 }
 
 //
@@ -467,7 +469,7 @@ func (rf *Raft) startAppendEntriesPerPeer(peerIndex int){
 	//TODO considerations around term changes on leader since sending request?
 	
 	if nextPeerIndex != rf.nextIndexPerPeer[peerIndex] {
-		DPrintf(dLeader, "S%d Append Entries (Next Index Changed, Ignoring result): Index before: %v, Index after: %v", nextPeerIndex, rf.nextIndexPerPeer[peerIndex])
+		DPrintf(dLeader, "S%d Append Entries (Next Index Changed, Ignoring result): Index before: %v, Index after: %v", rf.me, nextPeerIndex, rf.nextIndexPerPeer[peerIndex])
 	} else if startedAppendEntriesTerm == rf.currentTerm && reply.Term > rf.currentTerm {
 		DPrintf(dLeader, "S%d Append Entries (Term Failure): Old Term %v, New Term %v, Other Raft %v", rf.me, rf.currentTerm, reply.Term, peerIndex)
 		rf.isLeader = false
@@ -480,8 +482,8 @@ func (rf *Raft) startAppendEntriesPerPeer(peerIndex int){
 	} else {
 		DPrintf(dLeader, "S%d Append Entries (Failure): Last Log index %v, Other raft %v", rf.me, lastLogIndex, peerIndex)
 		if reply.LengthLog == 0 {
+			DPrintf(dLeader, "S%d Other raft %v has zero log length", rf.me, peerIndex)
 			rf.nextIndexPerPeer[peerIndex] = 1
-			rf.matchIndexPerPeer[peerIndex] = 0
 		} else {
 			if rf.logs[reply.FirstIndexForConflictingTerm].Term == reply.ConflictingTerm {
 				rf.nextIndexPerPeer[peerIndex] = reply.FirstIndexForConflictingTerm + 1
