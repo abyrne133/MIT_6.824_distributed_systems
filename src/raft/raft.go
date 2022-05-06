@@ -207,6 +207,8 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 
 	if args.Term > rf.currentTerm {
 		rf.votedFor = -1
+		rf.isLeader = false
+		rf.currentTerm = args.Term
 	}
 	
 	lastLogIndex := len(rf.logs)
@@ -433,9 +435,9 @@ func (rf *Raft) applyLog(){
 	if rf.commitIndex > rf.lastApplied {
 		for i := rf.lastApplied + 1; i <= rf.commitIndex; i++ {
 			applyMsg := ApplyMsg{CommandValid: true, Command: rf.logs[i].Command, CommandIndex: i}
+			rf.lastApplied = i
 			rf.applyCh <- applyMsg
-		}
-		rf.lastApplied = rf.commitIndex
+		}		
 	}
 }
 
@@ -459,7 +461,7 @@ func (rf *Raft) startAppendEntriesPerPeer(peerIndex int){
 	lastLogIndex := len(rf.logs)
 	nextPeerIndex := rf.nextIndexPerPeer[peerIndex]
 	startedAppendEntriesTerm := rf.currentTerm
-	DPrintf(dLog, "S%v Last Log Index %v next peer index %v, other raft %v", rf.me, lastLogIndex, nextPeerIndex, peerIndex)
+	// DPrintf(dLog, "S%v Last Log Index %v next peer index %v, other raft %v", rf.me, lastLogIndex, nextPeerIndex, peerIndex)
 	entries:= []Log{}
 	if lastLogIndex >= nextPeerIndex {
 		for i := nextPeerIndex; i <= lastLogIndex; i++ {
@@ -522,7 +524,7 @@ func (rf *Raft) startAppendEntriesPerPeer(peerIndex int){
 func (rf *Raft) commitLogs(){
 	for rf.killed() == false {
 		go rf.commitLog()
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(20 * time.Millisecond)
 	}
 }
 
@@ -541,7 +543,7 @@ func (rf *Raft) commitLog(){
 					committedPeersCount++
 				}
 			}
-			DPrintf(dLog, "S%v Index %v Replicated Peers Count %v Majority %v", rf.me, i, committedPeersCount, majority )
+			// DPrintf(dLog, "S%v Index %v Replicated Peers Count %v Majority %v", rf.me, i, committedPeersCount, majority )
 			if committedPeersCount >= majority {
 				rf.commitIndex = i
 			}
@@ -605,7 +607,11 @@ func (rf *Raft) startElection(){
 								rf.nextIndexPerPeer[i] = len(rf.logs) + 1
 								rf.matchIndexPerPeer[i] = 0
 							}
-							go rf.startAppendEntries()
+							for i := 0; i < len(rf.peers); i++ {
+								if i != rf.me {
+									go rf.startAppendEntriesPerPeer(i)
+								} 
+							}
 							go rf.commitLogs()
 							cond.Broadcast()
 						}
