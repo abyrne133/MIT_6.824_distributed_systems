@@ -264,20 +264,30 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	if args.PrevLogIndex != 0 && ((isPrevLogIndexInLogs == true  && rf.logs[args.PrevLogIndex].Term != args.PrevLogTerm) || isPrevLogIndexInLogs == false) {
 		DPrintf(dLog, "S%v Conflicting prev log index", rf.me)
 		reply.Success = false
-		reply.LengthLog = len(rf.logs)			
+		reply.LengthLog = len(rf.logs)	
+		if isPrevLogIndexInLogs == false {
+			reply.ConflictingTerm = 0
+			reply.FirstIndexForConflictingTerm = len(rf.logs)
+			return 
+		}		
 		conflictingTerm := rf.logs[args.PrevLogIndex].Term 
-		firstIndexForConflictingTerm := args.PrevLogIndex
-		DPrintf(dLog, "S%v Conflicting term %v, last index for conflicting term %v", rf.me, conflictingTerm, firstIndexForConflictingTerm)
-		sameConflictingTerm := true
-		for sameConflictingTerm == true {
-			if firstIndexForConflictingTerm != 0 && rf.logs[firstIndexForConflictingTerm-1].Term == conflictingTerm {
-				firstIndexForConflictingTerm--
-			} else {
-				sameConflictingTerm = false
+		DPrintf(dLog, "S%v Conflicting term %v", rf.me, conflictingTerm)
+		for i:=1; i <= len(rf.logs); i++{
+			if rf.logs[i].Term == conflictingTerm {
+				reply.ConflictingTerm = conflictingTerm
+				reply.FirstIndexForConflictingTerm = i
+				break
 			}
 		}
-		reply.ConflictingTerm = conflictingTerm
-		reply.FirstIndexForConflictingTerm = firstIndexForConflictingTerm
+		// sameConflictingTerm := true
+		// for sameConflictingTerm == true {
+		// 	if firstIndexForConflictingTerm != 0 && rf.logs[firstIndexForConflictingTerm-1].Term == conflictingTerm {
+		// 		firstIndexForConflictingTerm--
+		// 	} else {
+		// 		sameConflictingTerm = false
+		// 	}
+		// }
+		
 		DPrintf(dLog, "S%v Conflicting first index reply %v", rf.me, reply.FirstIndexForConflictingTerm)
 		return
 	}
@@ -466,35 +476,47 @@ func (rf *Raft) startAppendEntriesPerPeer(peerIndex int){
 		return
 	}
 	rf.mu.Lock()
-	//TODO considerations around term changes on leader since sending request?
+	defer rf.mu.Unlock()
 	
-	if nextPeerIndex != rf.nextIndexPerPeer[peerIndex] {
-		DPrintf(dLeader, "S%d Append Entries (Next Index Changed, Ignoring result): Index before: %v, Index after: %v", rf.me, nextPeerIndex, rf.nextIndexPerPeer[peerIndex])
-	} else if startedAppendEntriesTerm == rf.currentTerm && reply.Term > rf.currentTerm {
+	if reply.Term > rf.currentTerm {
 		DPrintf(dLeader, "S%d Append Entries (Term Failure): Old Term %v, New Term %v, Other Raft %v", rf.me, rf.currentTerm, reply.Term, peerIndex)
 		rf.isLeader = false
 		rf.currentTerm = reply.Term
 		rf.votedFor = -1
-	} else if reply.Success == true {
+		return
+	} 
+	
+	if startedAppendEntriesTerm != rf.currentTerm {
+		return
+	} 
+	
+	if reply.Success == true {
 		DPrintf(dLeader, "S%d Append Entries (Success): Last Log index %v, Other raft %v", rf.me, lastLogIndex, peerIndex)
-		rf.nextIndexPerPeer[peerIndex] = lastLogIndex + 1 //TODO check timing is OK here? Network might have taken a while, is lastLogIndex still legit?
-		rf.matchIndexPerPeer[peerIndex] = lastLogIndex
+		rf.nextIndexPerPeer[peerIndex] = lastLogIndex + 1
+		rf.matchIndexPerPeer[peerIndex] = prevLogIndex + len(entries)
 	} else {
 		DPrintf(dLeader, "S%d Append Entries (Failure): Last Log index %v, Other raft %v", rf.me, lastLogIndex, peerIndex)
-		if reply.LengthLog == 0 {
-			DPrintf(dLeader, "S%d Other raft %v has zero log length", rf.me, peerIndex)
-			rf.nextIndexPerPeer[peerIndex] = 1
-		} else {
-			if rf.logs[reply.FirstIndexForConflictingTerm].Term == reply.ConflictingTerm {
-				rf.nextIndexPerPeer[peerIndex] = reply.FirstIndexForConflictingTerm + 1
-			} else if reply.ConflictingTerm == 0 {
-				rf.nextIndexPerPeer[peerIndex] = reply.LengthLog
-			} else {
-				rf.nextIndexPerPeer[peerIndex] = reply.FirstIndexForConflictingTerm
+		for i:=len(rf.logs); i >= 1; i-- {
+			if rf.logs[i].Term == reply.ConflictingTerm{
+				rf.nextIndexPerPeer[peerIndex]= i + 1
+				return
 			}
 		}
+		rf.nextIndexPerPeer[peerIndex] = reply.FirstIndexForConflictingTerm
+		
+		// if reply.LengthLog == 0 {
+		// 	DPrintf(dLeader, "S%d Other raft %v has zero log length", rf.me, peerIndex)
+		// 	rf.nextIndexPerPeer[peerIndex] = 1
+		// } else {
+		// 	if rf.logs[reply.FirstIndexForConflictingTerm].Term == reply.ConflictingTerm {
+		// 		rf.nextIndexPerPeer[peerIndex] = reply.FirstIndexForConflictingTerm + 1
+		// 	} else if reply.ConflictingTerm == 0 {
+		// 		rf.nextIndexPerPeer[peerIndex] = reply.LengthLog
+		// 	} else {
+		// 		rf.nextIndexPerPeer[peerIndex] = reply.FirstIndexForConflictingTerm
+		// 	}
+		// }
 	}
-	rf.mu.Unlock()
 }
 
 func (rf *Raft) commitLogs(){
