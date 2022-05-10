@@ -524,7 +524,7 @@ func (rf *Raft) startAppendEntriesPerPeer(peerIndex int){
 func (rf *Raft) commitLogs(){
 	for rf.killed() == false {
 		go rf.commitLog()
-		time.Sleep(20 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 
